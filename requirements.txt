@@ -1,7 +1,7 @@
 Flask==2.3.3
 llama-index-core==0.10.43
 llama-index-llms-google-genai==0.1.7
-llama-index-embeddings-google-genai==0.1.3
+llama-index-embeddings-google-genai==0.2.0  # Versión actualizada
 PyPDF2==3.0.1
 reportlab==4.0.0
 python-dotenv==1.0.0
