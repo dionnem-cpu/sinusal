@@ -1,0 +1,9 @@
+{
+  "appId": "com.clinika.app",
+  "appName": "CliniKaApp",
+  "webDir": "build",
+  "bundledWebRuntime": false,
+  "server": {
+    "url": "http://192.168.0.196:5000"
+  }
+}

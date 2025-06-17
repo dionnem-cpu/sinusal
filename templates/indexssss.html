@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Asistente de Documentos IA</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Custom scrollbar for chat history */
+        .chat-history::-webkit-scrollbar {
+            width: 8px;
+        }
+        .chat-history::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        .chat-history::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+        .chat-history::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
+    <div class="bg-white p-8 rounded-lg shadow-xl w-full max-w-4xl flex flex-col md:flex-row space-y-8 md:space-y-0 md:space-x-8 max-h-screen overflow-hidden">
+        
+        <!-- Sección de Chatbot (Principal ahora) -->
+        <div class="flex-1 flex flex-col">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4 text-center flex items-center justify-center space-x-2">
+                <!-- Icono SVG de cruz médica -->
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-blue-600" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/>
+                </svg>
+                <span>Asistente Médico Virtual</span> <!-- CAMBIO CLAVE: Título con logo -->
+            </h2>
+            <div class="flex-1 bg-gray-50 p-4 rounded-lg border border-gray-200 flex flex-col h-[400px]">
+                <div id="chat-history" class="flex-1 overflow-y-auto space-y-4 mb-4 chat-history">
+                    <!-- Mensajes del chat se insertarán aquí -->
+                    <div class="flex justify-start">
+                        <div class="bg-blue-100 text-blue-800 p-3 rounded-lg max-w-xs shadow-sm">
+                            Hola, sube un documento para empezar a analizar.
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Controles de Input y Botones del Chat -->
+                <div class="flex flex-col space-y-2">
+                    <div class="flex">
+                        <input type="text" id="chat-input" class="flex-1 border border-gray-300 rounded-l-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="Escribe tu mensaje aquí...">
+                        <button id="send-chat-button" class="bg-green-600 text-white py-2 px-4 rounded-r-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition ease-in-out duration-150">
+                            Enviar
+                        </button>
+                    </div>
+
+                    <!-- Sección de Subida de Documentos (Movida aquí) -->
+                    <form id="document-form" class="space-y-2 p-4 border border-gray-200 rounded-lg bg-gray-50 mt-2">
+                        <div>
+                            <label for="documento" class="block text-sm font-medium text-gray-700">Subir Documento (PDF o TXT)</label>
+                            <input type="file" id="documento" name="documento" accept=".pdf,.txt" class="mt-1 block w-full text-sm text-gray-900 border border-gray-300 rounded-md cursor-pointer bg-white focus:outline-none focus:border-blue-500 focus:ring-blue-500">
+                        </div>
+                        <!-- El botón "Procesar Documento" ya no es necesario aquí, la subida activa el proceso -->
+                    </form>
+                    <div id="status-message" class="mt-2 text-center text-sm font-medium text-gray-600"></div>
+
+                    <!-- Botón Exportar Última Respuesta a PDF (Movido al final) -->
+                    <button id="export-chat-pdf-button" class="w-full bg-purple-600 text-white py-2 px-4 rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition ease-in-out duration-150 mt-2">
+                        Exportar Última Respuesta a PDF
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const documentForm = document.getElementById('document-form');
+        const statusMessage = document.getElementById('status-message');
+        const chatInput = document.getElementById('chat-input');
+        const sendChatButton = document.getElementById('send-chat-button');
+        const chatHistory = document.getElementById('chat-history');
+        const exportChatPdfButton = document.getElementById('export-chat-pdf-button');
+        const fileInput = document.getElementById('documento'); // Referencia al input de archivo
+
+        let lastAiResponse = ""; // Variable para almacenar la última respuesta de la IA
+
+        // Función para añadir un mensaje al historial del chat
+        function addChatMessage(message, sender) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `flex ${sender === 'user' ? 'justify-end' : 'justify-start'}`;
+            const bubbleDiv = document.createElement('div');
+            bubbleDiv.className = `p-3 rounded-lg max-w-xs shadow-sm ${sender === 'user' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-800'}`;
+            bubbleDiv.textContent = message;
+            messageDiv.appendChild(bubbleDiv);
+            chatHistory.appendChild(messageDiv);
+            chatHistory.scrollTop = chatHistory.scrollHeight; // Desplazarse al final
+        }
+
+        // Función para actualizar la lista de documentos indexados (ya no se usa)
+        async function updateIndexedDocumentsList() {
+            console.log("updateIndexedDocumentsList ya no actualiza la UI.");
+        }
+
+        // Llamar a la función al cargar la página (ya no actualiza la UI)
+        updateIndexedDocumentsList();
+
+        // CAMBIO CLAVE AQUÍ: El procesamiento se activa al cambiar el archivo, no por un botón de submit
+        fileInput.addEventListener('change', async () => {
+            if (fileInput.files.length === 0) {
+                statusMessage.textContent = 'Ningún archivo seleccionado.';
+                statusMessage.classList.remove('text-green-600', 'text-red-600');
+                statusMessage.classList.add('text-gray-600');
+                return;
+            }
+
+            statusMessage.textContent = 'Procesando documento... Esto puede tardar unos segundos.';
+            statusMessage.classList.remove('text-red-600', 'text-green-600');
+            statusMessage.classList.add('text-gray-600');
+
+            const formData = new FormData();
+            formData.append('documento', fileInput.files[0]);
+
+            try {
+                const response = await fetch('/procesar', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (response.ok) {
+                    const message = await response.text();
+                    statusMessage.textContent = `Documento procesado: ${message}`;
+                    statusMessage.classList.remove('text-gray-600', 'text-red-600');
+                    statusMessage.classList.add('text-green-600');
+                } else {
+                    const errorText = await response.text();
+                    statusMessage.textContent = `Error al procesar: ${errorText}`;
+                    statusMessage.classList.remove('text-gray-600', 'text-green-600');
+                    statusMessage.classList.add('text-red-600');
+                }
+            } catch (error) {
+                statusMessage.textContent = `Error de red: ${error.message}`;
+                statusMessage.classList.remove('text-gray-600', 'text-green-600');
+                statusMessage.classList.add('text-red-600');
+                console.error('Error:', error);
+            }
+        });
+
+
+        sendChatButton.addEventListener('click', async () => {
+            const message = chatInput.value.trim();
+            if (message === '') return;
+
+            addChatMessage(message, 'user');
+            chatInput.value = '';
+            addChatMessage('Escribiendo...', 'ai');
+
+            try {
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ message: message })
+                });
+
+                const data = await response.json();
+                if (chatHistory.lastChild && chatHistory.lastChild.querySelector('div').textContent === 'Escribiendo...') {
+                    chatHistory.lastChild.remove();
+                }
+                addChatMessage(data.response, 'ai');
+                lastAiResponse = data.response; // Almacenar la última respuesta de la IA
+
+            } catch (error) {
+                console.error('Error al enviar mensaje al chatbot:', error);
+                if (chatHistory.lastChild && chatHistory.lastChild.querySelector('div').textContent === 'Escribiendo...') {
+                    chatHistory.lastChild.remove();
+                }
+                addChatMessage('Lo siento, no pude conectar con el chatbot.', 'ai');
+                lastAiResponse = ""; // Limpiar en caso de error
+            }
+        });
+
+        // Event listener para el nuevo botón de exportar a PDF
+        exportChatPdfButton.addEventListener('click', async () => {
+            if (lastAiResponse === "") {
+                alert("No hay una respuesta de la IA para exportar a PDF. Chatea primero.");
+                return;
+            }
+
+            try {
+                const response = await fetch('/export_chat_response_pdf', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ text_content: lastAiResponse }) // Enviar la última respuesta de la IA
+                });
+
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'respuesta_chatbot.pdf'; // Nombre de archivo por defecto
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    window.URL.revokeObjectURL(url);
+                    alert("PDF de la respuesta del chatbot generado y descargado.");
+                } else {
+                    const errorText = await response.text();
+                    alert(`Error al generar el PDF de la respuesta del chatbot: ${errorText}`);
+                }
+            } catch (error) {
+                alert(`Error de red al generar el PDF: ${error.message}`);
+                console.error('Error al exportar chat a PDF:', error);
+            }
+        });
+
+
+        // Permitir enviar mensaje con la tecla Enter
+        chatInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendChatButton.click();
+            }
+        });
+    </script>
+</body>
+</html>
