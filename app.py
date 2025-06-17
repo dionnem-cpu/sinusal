@@ -1,6 +1,5 @@
 import os
 # Configurar la codificación de la consola a UTF-8 al inicio
-# Esto ayuda a evitar UnicodeEncodeError en la salida de la terminal de Windows.
 os.environ['PYTHONIOENCODING'] = 'utf-8'
 
 from flask import Flask, request, render_template, send_file, jsonify
@@ -26,6 +25,7 @@ load_dotenv()
 
 app = Flask(__name__)
 # AÑADE ESTA LÍNEA para habilitar CORS para todas las rutas y orígenes
+# Esto es crucial para que tu frontend React (ejecutándose en localhost) pueda comunicarse con el túnel.
 CORS(app) 
 
 # 🔐 IMPORTANTE: Cargar la clave de API de Gemini desde una variable de entorno
@@ -203,6 +203,8 @@ with app.app_context():
 
 @app.route("/", methods=["GET"])
 def index():
+    # En un entorno de producción con React, Flask no serviría el index.html
+    # Solo se usa aquí para pruebas locales o si no hay un servidor frontend separado
     return render_template("index.html")
 
 @app.route("/procesar", methods=["POST"])
@@ -551,6 +553,6 @@ def export_chat_response_pdf():
 
     return send_file(buffer_pdf, as_attachment=True, download_name="informe_medico_ia.pdf", mimetype="application/pdf")
 
-# Este bloque asegura que la aplicación Flask se ejecute cuando el script es el principal.
-if __name__ == "__main__":
-    app.run(debug=True)
+# Este bloque se elimina o comenta para despliegue en plataformas como PythonAnywhere
+# if __name__ == "__main__":
+#     app.run(host='0.0.0.0', port=5000, debug=True)
