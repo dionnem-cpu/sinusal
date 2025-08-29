@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Matriz de Riesgo vs Frecuencia - Holter ECG</title>
+  <style>
+    :root{
+      --bg:#f7f7f8;           /* fondo app tipo ChatGPT */
+      --panel:#ffffff;        /* paneles */
+      --text:#0c0c0d;         /* texto principal */
+      --muted:#6b7280;        /* texto secundario */
+      --border:#e5e7eb;       /* bordes */
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding: 16px; }
+    .container { max-width: 1280px; margin: 0 auto; }
+
+    /* Barra superior minimal */
+    .topnav{display:flex;align-items:center;gap:8px;margin-bottom:14px}
+    .topnav a{color:#111827;text-decoration:none;font-weight:700}
+    .topnav select{margin-left:auto;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:#fff}
+
+    .header { background: var(--panel); padding: 24px; border-radius: 14px; text-align: center; margin-bottom: 20px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); border: 1px solid var(--border); }
+    .header h1 { color: #111827; font-size: 1.6rem; margin-bottom: 6px; display: flex; align-items: center; justify-content: center; gap: 10px; }
+    .heart-icon { font-size: 1.4rem; }
+    .header p { color: var(--muted); font-size: 0.95rem; }
+
+    .main-content { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+    @media (max-width: 1200px) { .main-content { grid-template-columns: 1fr; } }
+
+    .panel { background: var(--panel); border-radius: 12px; padding: 20px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); border: 1px solid var(--border); height: fit-content; }
+    .panel-title { font-size: 1rem; font-weight: 700; margin-bottom: 14px; color: #111827; }
+
+    .form-group { margin-bottom: 16px; }
+    .form-label { font-weight: 600; color: #111827; margin-bottom: 10px; display: block; font-size: 0.95rem; }
+    .checkbox-group { display: flex; flex-direction: column; gap: 8px; }
+    .checkbox-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; transition: background-color 0.15s; cursor: pointer; }
+    .checkbox-item:hover { background-color: #f3f4f6; }
+    .checkbox-item input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-color: #111; }
+    .checkbox-item label { cursor: pointer; font-size: 0.92rem; color: #374151; }
+    select, input[type="number"], textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.95rem; background: #fff; color:#111827 }
+    select:focus, input[type="number"]:focus, textarea:focus { outline: none; border-color: #c7c9cc; box-shadow: 0 0 0 2px rgba(17,24,39,0.06); }
+
+    /* === MATRIZ: conservar paleta original para diferenciar el cuadrante activo === */
+    .matrix-container { position: relative; margin: 10px auto; width: 100%; max-width: 380px; }
+    .axis-labels { position: absolute; font-weight: 600; color: #111827; font-size: 12px; }
+    .y-axis { left: -60px; top: 50%; transform: rotate(-90deg) translateY(-50%); transform-origin: center; white-space: nowrap; }
+    .x-axis { bottom: -28px; left: 50%; transform: translateX(-50%); white-space: nowrap; }
+    .matrix { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; width: 100%; aspect-ratio: 1; border: 2px solid #111827; border-radius: 8px; overflow: hidden; }
+    .quadrant { border: 1px solid #111827; padding: 14px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; font-size: 11px; line-height: 1.3; transition: transform 0.2s ease; }
+    .quadrant.active { transform: scale(1.02); box-shadow: inset 0 0 0 3px #111827; z-index: 1; position: relative; }
+    .quadrant h3 { font-size: 12px; font-weight: 800; margin-bottom: 6px; }
+    .quadrant-desc { font-size: 10px; opacity: 0.95; }
+    /* Paleta de cuadrantes intacta */
+    .high-risk-low-freq { background: linear-gradient(135deg, #c8d6e5 0%, #a4b0be 100%); color: #1f2937; }
+    .high-risk-high-freq { background: linear-gradient(135deg, #5a7a95 0%, #485f75 100%); color: #fff; }
+    .low-risk-low-freq { background: linear-gradient(135deg, #a8d5ba 0%, #7fb069 100%); color: #1f2937; }
+    .low-risk-high-freq { background: linear-gradient(135deg, #f7dc6f 0%, #d4ac0d 100%); color: #1f2937; }
+
+    .scores { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+    .score-item { text-align: center; padding: 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--panel); }
+    .score-label { font-size: 0.8rem; color: var(--muted); margin-bottom: 2px; font-weight: 600; }
+    .score-value { font-size: 1.6rem; font-weight: 800; color: #111827; }
+    .score-max { font-size: 0.7rem; color: #9ca3af; }
+
+    .patient-indicator { margin-top: 10px; text-align: center; }
+    .patient-badge { display: inline-block; padding: 6px 12px; background: #fff; border: 1px solid #111827; border-radius: 999px; font-size: 12px; font-weight: 700; color: #111827; }
+
+    /* Resultados: neutro, sin colores vivos */
+    .result-section { margin-bottom: 16px; padding: 16px; border-radius: 10px; border: 1px solid var(--border); background: var(--panel); }
+    .classification { text-align: center; padding: 16px; border-radius: 10px; font-weight: 800; margin-bottom: 14px; border: 1px solid var(--border); background: var(--panel); color:#111827 }
+    .urgency { text-align: center; padding: 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--panel); color:#111827 }
+    .urgency-critical, .urgency-priority, .urgency-programmed, .urgency-optional { background: var(--panel) !important; border-color: var(--border) !important; color:#111827 !important; }
+    .recommendation { background: var(--panel); padding: 16px; border-radius: 10px; margin-bottom: 14px; border: 1px solid var(--border); }
+    .recommendation h3 { color: #111827; margin-bottom: 8px; font-weight: 800; font-size: 0.95rem; }
+    .justification { background: var(--panel); padding: 16px; border-radius: 10px; border: 1px solid var(--border); }
+    .justification h3 { color: #111827; margin-bottom: 10px; font-weight: 800; font-size: 0.95rem; }
+    .justification ul { list-style: none; padding: 0; }
+    .justification li { margin-bottom: 6px; display: flex; align-items: flex-start; gap: 8px; font-size: 0.92rem; color: #374151; }
+    .bullet { color: #111827; font-weight: 800; margin-top: 2px; }
+
+    .hidden { display: none; }
+
+    /* Botón neutro */
+    .btn { background:#111827; color:#fff; border:none; padding:10px 16px; border-radius:10px; font-size:0.95rem; font-weight:800; cursor:pointer; transition:opacity .15s ease }
+    .btn:hover{ opacity:.9 }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="topnav">
+      <a href="/">← Inicio</a>
+      <label for="toolPicker" style="margin-left:auto;font-weight:700;color:#374151">Herramientas</label>
+      <select id="toolPicker">
+        <option value="">Selecciona…</option>
+        <option value="/soap">Formulario SOAP</option>
+        <option value="/holter-matrix" selected>Matriz Holter</option>
+      </select>
+    </div>
+
+    <div class="header">
+      <h1>
+        <span class="heart-icon">❤️</span>
+        Matriz de Riesgo vs Frecuencia
+      </h1>
+      <p>Selección inteligente de monitorización ECG ambulatoria</p>
+    </div>
+
+    <div class="main-content">
+      <!-- Panel de Evaluación -->
+      <div class="panel">
+        <h2 class="panel-title">Evaluación del paciente</h2>
+
+        <div class="form-group">
+          <label class="form-label">Síntomas</label>
+          <div class="checkbox-group">
+            <label class="checkbox-item"><input type="checkbox" id="syncope" onchange="updateForm()"><span>🚨 Síncope</span></label>
+            <label class="checkbox-item"><input type="checkbox" id="presyncope" onchange="updateForm()"><span>⚠️ Presíncope/Mareo</span></label>
+            <label class="checkbox-item"><input type="checkbox" id="palpitations" onchange="updateForm()"><span>💓 Palpitaciones</span></label>
+            <label class="checkbox-item"><input type="checkbox" id="asymptomatic" onchange="updateForm()"><span>😴 Asintomático</span></label>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Frecuencia de eventos</label>
+          <select id="symptomFrequency" onchange="updateForm()">
+            <option value="">Seleccionar...</option>
+            <option value="daily">Diarios (Alta frecuencia)</option>
+            <option value="weekly">Semanales</option>
+            <option value="monthly">Mensuales</option>
+            <option value="sporadic">Esporádicos (&gt;1 mes)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Hallazgos ECG</label>
+          <div class="checkbox-group">
+            <label class="checkbox-item"><input type="checkbox" id="qtLong" onchange="updateForm()"><span>QT prolongado</span></label>
+            <label class="checkbox-item"><input type="checkbox" id="brugada" onchange="updateForm()"><span>Patrón Brugada</span></label>
+            <label class="checkbox-item"><input type="checkbox" id="afib" onchange="updateForm()"><span>Fibrilación auricular</span></label>
+            <label class="checkbox-item"><input type="checkbox" id="ecgAbnormal" onchange="updateForm()"><span>ECG anormal (otros)</span></label>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Factores de riesgo</label>
+          <div class="checkbox-group">
+            <label class="checkbox-item"><input type="checkbox" id="familyHistory" onchange="updateForm()"><span>Historia familiar MSC</span></label>
+            <label class="checkbox-item"><input type="checkbox" id="structuralHeart" onchange="updateForm()"><span>Cardiopatía estructural</span></label>
+            <label class="checkbox-item"><input type="checkbox" id="medications" onchange="updateForm()"><span>Fármacos proarrítmicos</span></label>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Impacto clínico</label>
+          <select id="clinicalImpact" onchange="updateForm()">
+            <option value="">Seleccionar...</option>
+            <option value="high">Alto (cambiará tratamiento)</option>
+            <option value="moderate">Moderado (orientará seguimiento)</option>
+            <option value="low">Bajo (información adicional)</option>
+          </select>
+        </div>
+
+        <!-- Datos adicionales del paciente -->
+        <div class="form-group additional-data">
+          <label class="form-label">Datos adicionales</label>
+          <div style="margin-bottom: 10px;"><label style="font-size: 0.9rem; color: #374151; display: block; margin-bottom: 6px;">Edad</label><input type="number" id="patientAge" placeholder="Edad en años" min="1" max="120" onchange="updateForm()"></div>
+          <div style="margin-bottom: 10px;"><label style="font-size: 0.9rem; color: #374151; display: block; margin-bottom: 6px;">Sospecha diagnóstica</label>
+            <select id="suspectedDx" onchange="updateForm()">
+              <option value="">Seleccionar sospecha...</option>
+              <option value="channelopathy">Canalopatía (Brugada, LQTS, CPVT)</option>
+              <option value="hcm">Miocardiopatía hipertrófica</option>
+              <option value="arvc">Displasia arritmogénica VD</option>
+              <option value="dcm">Miocardiopatía dilatada</option>
+              <option value="cad">Cardiopatía isquémica</option>
+              <option value="valvular">Valvulopatía</option>
+              <option value="myocarditis">Miocarditis/Pericarditis</option>
+              <option value="functional">Arritmia funcional/Benigna</option>
+              <option value="unknown">Sin sospecha específica</option>
+            </select>
+          </div>
+          <div style="margin-bottom: 10px;">
+            <label style="font-size: 0.9rem; color: #374151; display: block; margin-bottom: 6px;">Antecedentes relevantes</label>
+            <div class="checkbox-group" style="font-size: 0.9rem;">
+              <label class="checkbox-item"><input type="checkbox" id="diabetes" onchange="updateForm()"><span>Diabetes mellitus</span></label>
+              <label class="checkbox-item"><input type="checkbox" id="hypertension" onchange="updateForm()"><span>Hipertensión arterial</span></label>
+              <label class="checkbox-item"><input type="checkbox" id="thyroid" onchange="updateForm()"><span>Patología tiroidea</span></label>
+              <label class="checkbox-item"><input type="checkbox" id="kidneydx" onchange="updateForm()"><span>Enfermedad renal</span></label>
+              <label class="checkbox-item"><input type="checkbox" id="previousMI" onchange="updateForm()"><span>Infarto previo</span></label>
+              <label class="checkbox-item"><input type="checkbox" id="heartSurgery" onchange="updateForm()"><span>Cirugía cardíaca previa</span></label>
+            </div>
+          </div>
+          <div>
+            <label style="font-size: 0.9rem; color: #374151; display: block; margin-bottom: 6px;">Comentarios adicionales</label>
+            <textarea id="additionalComments" placeholder="Información clínica adicional relevante..." onchange="updateForm()" style="height: 60px; resize: vertical;"></textarea>
+          </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 14px;">
+          <button class="btn" onclick="resetForm()">🔄 Reset / Nuevo paciente</button>
+        </div>
+      </div>
+
+      <!-- Panel de Matriz -->
+      <div class="panel">
+        <h2 class="panel-title">Matriz de clasificación</h2>
+        <div class="matrix-container">
+          <div class="axis-labels y-axis">RIESGO →</div>
+          <div class="axis-labels x-axis">FRECUENCIA →</div>
+          <div class="matrix">
+            <div id="quad-hr-lf" class="quadrant high-risk-low-freq">
+              <h3>ALTO RIESGO<br>BAJA FRECUENCIA</h3>
+              <div class="quadrant-desc">Monitoreo prolongado<br>Event Recorder/Implantable</div>
+            </div>
+            <div id="quad-hr-hf" class="quadrant high-risk-high-freq">
+              <h3>ALTO RIESGO<br>ALTA FRECUENCIA</h3>
+              <div class="quadrant-desc">URGENTE<br>Holter 24-48h</div>
+            </div>
+            <div id="quad-lr-lf" class="quadrant low-risk-low-freq">
+              <h3>BAJO RIESGO<br>BAJA FRECUENCIA</h3>
+              <div class="quadrant-desc">Seguimiento clínico<br>Monitor móvil</div>
+            </div>
+            <div id="quad-lr-hf" class="quadrant low-risk-high-freq">
+              <h3>BAJO RIESGO<br>ALTA FRECUENCIA</h3>
+              <div class="quadrant-desc">Holter convencional<br>24h - 14 días</div>
+            </div>
+          </div>
+          <div class="patient-indicator"><div class="patient-badge">👤 PACIENTE</div></div>
+        </div>
+        <div class="scores">
+          <div class="score-item"><div class="score-label">Score Riesgo</div><div class="score-value" id="riskScore">0</div><div class="score-max">/ 100</div></div>
+          <div class="score-item"><div class="score-label">Score Frecuencia</div><div class="score-value" id="freqScore">0</div><div class="score-max">/ 100</div></div>
+        </div>
+      </div>
+
+      <!-- Panel de Resultados -->
+      <div class="panel">
+        <h2 class="panel-title">Recomendación</h2>
+        <div id="results" class="result-section hidden">
+          <div id="classification" class="classification"></div>
+          <div id="urgency" class="urgency"><div style="font-size: 0.9rem; margin-bottom: 4px;">PRIORIDAD</div><div id="urgencyLevel" style="font-size: 1.1rem; font-weight: 800;"></div></div>
+          <div class="recommendation"><h3>Monitor recomendado</h3><div id="recommendationText"></div></div>
+          <div class="justification"><h3>Justificación</h3><ul id="justificationList"></ul></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentMatrix = null;
+    document.getElementById('toolPicker').addEventListener('change', function(){ if(this.value) location.href=this.value; });
+
+    function updateForm() {
+      const formData = {
+        syncope: document.getElementById('syncope').checked,
+        presyncope: document.getElementById('presyncope').checked,
+        palpitations: document.getElementById('palpitations').checked,
+        asymptomatic: document.getElementById('asymptomatic').checked,
+        symptomFrequency: document.getElementById('symptomFrequency').value,
+        qtLong: document.getElementById('qtLong').checked,
+        brugada: document.getElementById('brugada').checked,
+        afib: document.getElementById('afib').checked,
+        ecgAbnormal: document.getElementById('ecgAbnormal').checked,
+        familyHistory: document.getElementById('familyHistory').checked,
+        structuralHeart: document.getElementById('structuralHeart').checked,
+        medications: document.getElementById('medications').checked,
+        clinicalImpact: document.getElementById('clinicalImpact').value,
+        patientAge: document.getElementById('patientAge').value,
+        suspectedDx: document.getElementById('suspectedDx').value,
+        diabetes: document.getElementById('diabetes').checked,
+        hypertension: document.getElementById('hypertension').checked,
+        thyroid: document.getElementById('thyroid').checked,
+        kidneydx: document.getElementById('kidneydx').checked,
+        previousMI: document.getElementById('previousMI').checked,
+        heartSurgery: document.getElementById('heartSurgery').checked,
+        additionalComments: document.getElementById('additionalComments').value
+      };
+      calculateMatrix(formData);
+    }
+
+    function calculateMatrix(formData) {
+      let riskScore = 0;
+      if (formData.syncope) riskScore += 25;
+      if (formData.presyncope) riskScore += 15;
+      if (formData.palpitations) riskScore += 10;
+      if (formData.qtLong || formData.brugada) riskScore += 30;
+      if (formData.afib) riskScore += 15;
+      if (formData.ecgAbnormal) riskScore += 10;
+      if (formData.familyHistory) riskScore += 20;
+      if (formData.structuralHeart) riskScore += 25;
+      if (formData.medications) riskScore += 5;
+      const age = parseInt(formData.patientAge);
+      if (age) {
+        if (age < 18) riskScore += 15;
+        else if (age >= 65) riskScore += 10;
+        else if (age < 35 && (formData.syncope || formData.qtLong || formData.brugada)) riskScore += 10;
+      }
+      switch (formData.suspectedDx) {
+        case 'channelopathy': riskScore += 35; break;
+        case 'hcm': riskScore += 30; break;
+        case 'arvc': riskScore += 30; break;
+        case 'dcm': riskScore += 25; break;
+        case 'cad': riskScore += 20; break;
+        case 'myocarditis': riskScore += 25; break;
+        case 'functional': riskScore -= 10; break;
+        case 'valvular': riskScore += 15; break;
+      }
+      if (formData.previousMI) riskScore += 20;
+      if (formData.heartSurgery) riskScore += 15;
+      if (formData.diabetes) riskScore += 8;
+      if (formData.hypertension) riskScore += 5;
+      if (formData.thyroid) riskScore += 10;
+      if (formData.kidneydx) riskScore += 8;
+      if (formData.additionalComments && formData.additionalComments.trim().length > 10) riskScore += 5;
+
+      let frequencyScore = 0;
+      switch (formData.symptomFrequency) {
+        case 'daily': frequencyScore = 90; break;
+        case 'weekly': frequencyScore = 70; break;
+        case 'monthly': frequencyScore = 40; break;
+        case 'sporadic': frequencyScore = 10; break;
+        default: frequencyScore = formData.asymptomatic ? 0 : 50; break;
+      }
+      if (formData.clinicalImpact === 'high') riskScore = Math.min(100, riskScore * 1.2);
+
+      riskScore = Math.min(100, Math.round(riskScore));
+      document.getElementById('riskScore').textContent = riskScore;
+      document.getElementById('freqScore').textContent = frequencyScore;
+
+      const highRisk = riskScore >= 50;
+      const highFrequency = frequencyScore >= 50;
+
+      let quadrant, recommendation, urgency;
+      let justifications = [];
+
+      if (highRisk && highFrequency) {
+        quadrant = 'ALTO RIESGO - ALTA FRECUENCIA';
+        recommendation = 'Holter 24-48h URGENTE + evaluación inmediata';
+        urgency = 'CRÍTICO';
+        justifications.push('Alto riesgo con síntomas frecuentes');
+        justifications.push('Necesita correlación inmediata ECG-síntomas');
+      } else if (highRisk && !highFrequency) {
+        quadrant = 'ALTO RIESGO - BAJA FRECUENCIA';
+        recommendation = 'Event Recorder 30 días o Holter implantable';
+        urgency = 'PRIORITARIO';
+        justifications.push('Alto riesgo con episodios esporádicos');
+        justifications.push('Monitorización prolongada para capturar eventos');
+      } else if (!highRisk && highFrequency) {
+        quadrant = 'BAJO RIESGO - ALTA FRECUENCIA';
+        recommendation = 'Holter 24h o Event Recorder 7-14 días';
+        urgency = 'PROGRAMADO';
+        justifications.push('Síntomas frecuentes en perfil de bajo riesgo');
+        justifications.push('Evaluación rutinaria es razonable');
+      } else {
+        quadrant = 'BAJO RIESGO - BAJA FRECUENCIA';
+        recommendation = 'Monitor móvil/Smartwatch o seguimiento clínico';
+        urgency = 'OPCIONAL';
+        justifications.push('Bajo riesgo con síntomas infrecuentes');
+        justifications.push('Seguimiento clínico puede ser suficiente');
+      }
+
+      if (formData.syncope) justifications.push('Síncope: requiere evaluación urgente');
+      if (formData.qtLong || formData.brugada) justifications.push('Canalopatía: riesgo de MSC');
+      if (formData.familyHistory) justifications.push('Historia familiar positiva');
+      if (formData.structuralHeart) justifications.push('Cardiopatía estructural presente');
+      if (age && age < 35 && riskScore >= 40) justifications.push('Paciente joven con riesgo relevante');
+      if (age && age >= 65) justifications.push('Edad avanzada: considerar comorbilidades');
+      if (formData.suspectedDx === 'channelopathy') justifications.push('Sospecha de canalopatía');
+      if (formData.previousMI) justifications.push('Infarto previo: sustrato arritmogénico');
+      if (formData.thyroid) justifications.push('Patología tiroidea proarrítmica');
+
+      updateMatrixVisual(highRisk, highFrequency);
+      updateResults(quadrant, recommendation, urgency, justifications);
+      currentMatrix = { highRisk, highFrequency, riskScore, frequencyScore };
+    }
+
+    function updateMatrixVisual(highRisk, highFrequency) {
+      document.querySelectorAll('.quadrant').forEach(q => q.classList.remove('active'));
+      let activeQuadrant;
+      if (highRisk && highFrequency) activeQuadrant = 'quad-hr-hf';
+      else if (highRisk && !highFrequency) activeQuadrant = 'quad-hr-lf';
+      else if (!highRisk && highFrequency) activeQuadrant = 'quad-lr-hf';
+      else activeQuadrant = 'quad-lr-lf';
+      document.getElementById(activeQuadrant).classList.add('active');
+    }
+
+    function updateResults(quadrant, recommendation, urgency, justifications) {
+      document.getElementById('results').classList.remove('hidden');
+      const classificationEl = document.getElementById('classification');
+      classificationEl.textContent = quadrant;
+      const urgencyEl = document.getElementById('urgency');
+      urgencyEl.className = `urgency`;
+      document.getElementById('urgencyLevel').textContent = urgency;
+      document.getElementById('recommendationText').textContent = recommendation;
+      const justificationList = document.getElementById('justificationList');
+      justificationList.innerHTML = '';
+      justifications.forEach(justification => {
+        const li = document.createElement('li');
+        li.innerHTML = `<span class="bullet">•</span><span>${justification}</span>`;
+        justificationList.appendChild(li);
+      });
+    }
+
+    function resetForm() {
+      if (!confirm('¿Seguro que desea reiniciar todos los datos?')) return;
+      document.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+      document.querySelectorAll('select').forEach(select => select.value = '');
+      document.getElementById('patientAge').value = '';
+      document.getElementById('additionalComments').value = '';
+      document.getElementById('results').classList.add('hidden');
+      document.querySelectorAll('.quadrant').forEach(q => q.classList.remove('active'));
+      document.getElementById('riskScore').textContent = '0';
+      document.getElementById('freqScore').textContent = '0';
+      currentMatrix = null;
+      updateForm();
+    }
+
+    updateForm();
+  </script>
+</body>
+</html>

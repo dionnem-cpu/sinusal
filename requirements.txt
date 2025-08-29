@@ -1,0 +1,35 @@
+# Requisitos mínimos + dependencias clave fijadas para reproducibilidad
+Flask==2.3.3
+Flask-Cors==4.0.0
+# LlamaIndex + conectores Google GenAI
+llama-index-core==0.12.45
+llama-index-embeddings-google-genai==0.2.1
+llama-index-llms-google-genai==0.2.3
+# Cliente oficial Google GenAI + auth
+google-genai==1.24.0
+google-auth==2.40.3
+# PDF
+PyPDF2==3.0.1
+reportlab==4.4.2
+# Config
+python-dotenv==1.1.1
+# Pila HTTP que usan las libs
+httpx==0.28.1
+httpcore==1.0.9
+anyio==4.9.0
+sniffio==1.3.1
+idna==3.10
+certifi==2025.6.15
+charset-normalizer==3.4.2
+# Tipado/serialización
+pydantic==2.11.7
+pydantic_core==2.33.2
+typing_extensions==4.14.0
+dataclasses-json==0.6.7
+# Utilidades comunes
+packaging==25.0
+importlib_metadata==8.7.0
+zipp==3.23.0
+numpy==2.0.2
+PyYAML==6.0.2
+tenacity==8.5.0

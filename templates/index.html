@@ -4,300 +4,439 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Asistente de Documentos IA</title>
-    <!-- Incluir Tailwind CSS desde CDN -->
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Fuente Inter (ya presente en tu código) -->
+    <!-- Inter font -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
-        body {
-            font-family: 'Inter', sans-serif;
+        /* Apariencia tipo ChatGPT / NotebookLM */
+        :root{
+          --bg:#f7f7f8;          /* fondo app */
+          --panel:#ffffff;       /* paneles */
+          --ai:#f7f7f8;          /* burbuja IA */
+          --user:#10a37f;        /* burbuja usuario */
+          --text:#0c0c0d;        /* texto principal */
+          --muted:#6b7280;       /* texto secundario */
+          --border:#e5e7eb;      /* bordes suaves */
         }
-        /* Custom scrollbar for chat history */
-        .chat-history::-webkit-scrollbar {
-            width: 8px;
-        }
-        .chat-history::-webkit-scrollbar-track {
-            background: #f1f1f1;
-            border-radius: 10px;
-        }
-        .chat-history::-webkit-scrollbar-thumb {
-            background: #888;
-            border-radius: 10px;
-        }
-        .chat-history::-webkit-scrollbar-thumb:hover {
-            background: #555;
-        }
-
-        /* Estilos específicos para la burbuja de carga */
-        .loading-bubble {
-            background-color: #e2e8f0; /* Un gris claro para la burbuja */
-            padding: 0.75rem 1.25rem;
-            border-radius: 1.5rem; /* Más redondeado */
-            display: inline-block;
-            max-width: 70%; /* Para que no ocupe todo el ancho */
-            animation: pulse 1.5s infinite ease-in-out; /* Animación de pulsación */
-        }
-
-        /* Animación de pulsación */
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.7; }
-            100% { opacity: 1; }
-        }
-
-        /* Ocultar el input de archivo por defecto y estilizar el label */
-        input[type="file"] {
-            display: none;
-        }
-        .custom-file-upload {
-            border: 2px solid #3b82f6; /* Borde azul de Tailwind */
-            color: #3b82f6;
-            background-color: white;
-            padding: 0.75rem 1.5rem;
-            border-radius: 0.5rem;
-            cursor: pointer;
-            transition: all 0.2s ease-in-out;
-            font-weight: 600;
-            text-align: center; /* Centrar texto del botón */
-            display: block; /* Para que ocupe todo el ancho disponible si está en flex-col */
-        }
-        .custom-file-upload:hover {
-            background-color: #3b82f6;
-            color: white;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-        .custom-file-upload:active {
-            transform: translateY(1px);
-        }
+        body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text)}
+        .chat-history::-webkit-scrollbar{width:8px}
+        .chat-history::-webkit-scrollbar-track{background:#f1f1f1;border-radius:10px}
+        .chat-history::-webkit-scrollbar-thumb{background:#c7c9cc;border-radius:10px}
+        .chat-history::-webkit-scrollbar-thumb:hover{background:#a8aaad}
+        .loading-bubble{background-color:#e2e8f0;display:flex;align-items:center;justify-content:center;min-width:60px}
+        .dot-pulse{position:relative;width:10px;height:10px;border-radius:50%;background-color:#94a3b8;color:#94a3b8;box-shadow:-12px 0 0 -5px,12px 0 0 0;animation:dot-pulse 1.5s ease-in-out infinite}
+        @keyframes dot-pulse{0%{box-shadow:-12px 0 0 -5px,12px 0 0 0}25%{box-shadow:-12px 0 0 0,12px 0 0 -5px}50%{box-shadow:-12px 0 0 0,12px 0 0 0}75%{box-shadow:-12px 0 0 -5px,12px 0 0 0}100%{box-shadow:-12px 0 0 -5px,12px 0 0 -5px}}
+        .message-modal{position:fixed;top:0;left:0;width:100%;height:100%;background-color:rgba(0,0,0,.5);display:flex;justify-content:center;align-items:center;z-index:1000}
+        .message-modal-content{background:#fff;padding:2rem;border-radius:.75rem;box-shadow:0 10px 30px rgba(0,0,0,.15);text-align:center;max-width:420px}
+        input[type="file"]{display:none}
+        .custom-file-upload{border:1px solid var(--border);color:#111;background:#fff;padding:.5rem 1rem;border-radius:.5rem;cursor:pointer;transition:all .15s;font-weight:600;text-align:center;display:block;font-size:.875rem}
+        .custom-file-upload:hover{background:#111;color:#fff}
+        .preserved-text{white-space:pre-wrap;font-family:'SFMono-Regular',Menlo,Consolas,monospace;font-size:.9rem;line-height:1.5}
     </style>
 </head>
-<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
-    <!-- Contenedor principal adaptable -->
-    <div class="bg-white p-6 md:p-8 rounded-xl shadow-2xl w-full max-w-4xl flex flex-col md:flex-row space-y-6 md:space-y-0 md:space-x-8 h-auto md:h-[85vh] overflow-hidden">
-        
-        <!-- Sección de Chatbot (Principal ahora) -->
-        <div class="flex-1 flex flex-col h-full"> <!-- Añadido h-full para que ocupe altura en md:flex-row -->
-            <h2 class="text-2xl font-bold text-gray-800 mb-4 text-center flex flex-col items-center justify-center space-y-1">
-                <!-- Icono SVG de cruz médica -->
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-blue-600" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/>
-                </svg>
-                <span>Asistente Médico Virtual</span>
-                <!-- Información del Dr. Rodolfo Gutiérrez Caro -->
-                <span class="text-sm font-normal text-gray-600">Dr. Rodolfo Gutiérrez Caro</span>
-                <span class="text-xs font-normal text-gray-500">Especialista en Cardiología</span>
-                <span class="text-xs font-normal text-gray-500">Colegiado 332405519</span>
-            </h2>
-            <!-- Historial de Chat: crecera y tendra scroll -->
-            <div class="flex-1 bg-gray-50 p-4 rounded-lg border border-gray-200 flex flex-col overflow-y-auto space-y-4 mb-4 chat-history">
-                <div id="chat-history" class="flex-1 overflow-y-auto space-y-4"> <!-- Contenedor interno para scroll y mensajes -->
-                    <!-- Mensajes del chat se insertarán aquí -->
+<body class="min-h-screen flex flex-col items-center justify-start p-4">
+
+    <!-- Barra superior con menú de herramientas -->
+    <div class="w-full max-w-6xl mb-3">
+      <div class="flex justify-between items-center">
+        <div class="text-sm text-gray-500">Asistente Médico Virtual</div>
+        <div class="flex items-center gap-2">
+          <label for="toolPicker" class="text-sm font-semibold text-gray-700">Herramientas</label>
+          <select id="toolPicker" class="border border-gray-300 rounded-md text-sm p-2 bg-white">
+            <option value="">Selecciona…</option>
+            <option value="/soap">Formulario SOAP</option>
+            <option value="/holter-matrix">Matriz Holter</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Contenedor principal -->
+    <div class="bg-[var(--panel)] p-4 md:p-6 rounded-2xl shadow-xl w-full max-w-6xl flex flex-col lg:flex-row gap-6 h-auto lg:h-[85vh] overflow-hidden border border-[var(--border)]">
+
+        <!-- Panel lateral de pacientes -->
+        <aside class="lg:w-1/4 flex flex-col bg-white rounded-xl p-4 border border-[var(--border)] hidden lg:flex">
+            <h3 class="text-sm font-bold text-gray-800 mb-4">Pacientes</h3>
+            <div class="mb-3">
+                <input type="text" id="patient-search" class="w-full px-3 py-2 text-sm border border-[var(--border)] rounded-lg focus:ring-0 focus:border-gray-400" placeholder="Buscar paciente (ID o nombre)">
+            </div>
+            <button id="refresh-patients-btn" class="w-full bg-gray-900 hover:bg-black text-white py-2 px-3 rounded-lg mb-4 text-sm">Actualizar lista</button>
+            <div id="patients-count" class="text-xs text-gray-600 mb-2 text-center"></div>
+            <div id="patients-list" class="flex-1 space-y-2 overflow-y-auto">
+                <div class="text-gray-500 text-sm text-center py-4">Cargando pacientes...</div>
+            </div>
+            <div id="active-patient-info" class="mt-4 p-3 bg-[var(--bg)] rounded-lg border border-[var(--border)] hidden">
+                <p class="text-xs font-semibold text-gray-800">Paciente activo</p>
+                <p id="active-patient-id" class="text-xs text-gray-700"></p>
+                <p id="active-patient-name" class="text-xs text-gray-700"></p>
+                <p id="active-patient-age" class="text-xs text-gray-700"></p>
+                <p id="active-patient-docs" class="text-[11px] text-gray-500"></p>
+            </div>
+        </aside>
+
+        <!-- Sección principal de chat -->
+        <section class="flex-1 flex flex-col h-full">
+            <header class="mb-2 text-center">
+                <h1 class="text-xl font-semibold text-gray-900">Asistente Médico Virtual</h1>
+                <p class="text-xs text-gray-500">Dr. Rodolfo Gutiérrez Caro · Cardiología · Colegiado 332405519</p>
+            </header>
+
+            <!-- Historial -->
+            <div class="flex-1 bg-white p-4 rounded-xl border border-[var(--border)] flex flex-col overflow-y-auto space-y-4 mb-4 chat-history h-[50vh] lg:h-[60vh]">
+                <div id="chat-history-content" class="flex-1 overflow-y-auto space-y-4">
                     <div class="flex justify-start">
-                        <div class="bg-blue-100 text-blue-800 p-3 rounded-lg max-w-[85%] shadow-sm">
-                            Hola, sube un documento para empezar a analizar.
+                        <div class="p-3 rounded-2xl max-w-[85%] shadow-sm bg-[var(--ai)] text-gray-900 border border-[var(--border)]">
+                            Hola, soy tu Asistente Médico Virtual. Selecciona un paciente existente o sube un documento para comenzar.
                         </div>
                     </div>
                 </div>
             </div>
-            
-            <!-- Controles de Input y Botones del Chat -->
-            <div class="flex flex-col space-y-3"> <!-- Aumentado space-y para mejor separación en móvil -->
+
+            <!-- Input y controles -->
+            <div class="flex flex-col gap-2">
                 <div class="flex w-full">
-                    <input type="text" id="chat-input" class="flex-1 border border-gray-300 rounded-l-lg shadow-sm p-3 focus:ring-blue-500 focus:border-blue-500 text-base" placeholder="Escribe tu mensaje aquí...">
-                    <button id="send-chat-button" class="bg-green-600 text-white py-3 px-5 rounded-r-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition ease-in-out duration-150 text-base">
-                        Enviar
-                    </button>
+                    <input type="text" id="chat-input" class="flex-1 border border-[var(--border)] rounded-l-xl shadow-sm p-3 focus:ring-0 focus:border-gray-400 text-base" placeholder="Escribe tu mensaje aquí">
+                    <button id="send-chat-button" class="bg-[var(--user)] text-white py-3 px-5 rounded-r-xl hover:opacity-90 focus:outline-none transition text-base">Enviar</button>
                 </div>
 
-                <!-- Sección de Subida de Documentos -->
-                <form id="document-form" class="space-y-3 p-4 border border-gray-200 rounded-lg bg-gray-50 mt-3 shadow-sm"> <!-- Ajustado mt-2 a mt-3, añadido shadow -->
+                <!-- Subida de Documentos -->
+                <form id="document-form" class="space-y-2 p-3 border border-[var(--border)] rounded-xl bg-[var(--panel)] mt-2">
                     <div>
-                        <label for="documento" class="custom-file-upload">
-                            Seleccionar Documento (PDF o TXT)
-                        </label>
+                        <label for="documento" class="custom-file-upload">Seleccionar documento (PDF o TXT)</label>
                         <input type="file" id="documento" name="documento" accept=".pdf,.txt">
                     </div>
                 </form>
-                <div id="status-message" class="mt-2 text-center text-sm font-medium text-gray-600"></div>
+                <div id="status-message" class="mt-1 text-center text-sm font-medium text-gray-600"></div>
 
-                <!-- Botón Exportar Última Respuesta a PDF -->
-                <button id="export-chat-pdf-button" class="w-full bg-purple-600 text-white py-3 px-4 rounded-lg hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition ease-in-out duration-150 mt-3 shadow-md">
-                    Exportar Última Respuesta a PDF
+                <!-- Exportar PDF -->
+                <button id="export-chat-pdf-button" class="w-full bg-gray-900 text-white py-2 px-3 rounded-xl hover:bg-black transition mt-2">
+                    Exportar última respuesta a PDF
                 </button>
             </div>
+        </section>
+    </div>
+
+    <!-- Modal -->
+    <div id="message-modal" class="message-modal hidden">
+        <div class="message-modal-content">
+            <p id="message-modal-text" class="mb-4 text-lg"></p>
+            <button id="message-modal-close" class="px-4 py-2 bg-gray-900 text-white rounded-md hover:bg-black">Cerrar</button>
         </div>
     </div>
 
     <script>
+        // Menú superior
+        document.getElementById('toolPicker').addEventListener('change', function(){
+          if (this.value) window.location.href = this.value;
+        });
+
+        // Base del servidor Flask
+        const API_BASE_URL = 'https://dionnem.pythonanywhere.com';
+
         const documentForm = document.getElementById('document-form');
         const statusMessage = document.getElementById('status-message');
         const chatInput = document.getElementById('chat-input');
         const sendChatButton = document.getElementById('send-chat-button');
-        const chatHistory = document.getElementById('chat-history');
+        const chatHistoryContent = document.getElementById('chat-history-content');
         const exportChatPdfButton = document.getElementById('export-chat-pdf-button');
-        const fileInput = document.getElementById('documento'); // Referencia al input de archivo
+        const fileInput = document.getElementById('documento');
+        const refreshPatientsBtn = document.getElementById('refresh-patients-btn');
+        const patientsList = document.getElementById('patients-list');
+        const activePatientInfo = document.getElementById('active-patient-info');
+        const activePatientId = document.getElementById('active-patient-id');
+        const activePatientName = document.getElementById('active-patient-name');
+        const activePatientAge = document.getElementById('active-patient-age');
+        const activePatientDocs = document.getElementById('active-patient-docs');
+        const patientSearch = document.getElementById('patient-search');
+        const patientsCount = document.getElementById('patients-count');
 
-        let lastAiResponse = ""; // Variable para almacenar la última respuesta de la IA
+        const messageModal = document.getElementById('message-modal');
+        const messageModalText = document.getElementById('message-modal-text');
+        const messageModalCloseButton = document.getElementById('message-modal-close');
 
-        // Función para añadir un mensaje al historial del chat
-        function addChatMessage(message, sender) {
-            const messageDiv = document.createElement('div');
-            // Añadir flex y justify-end/start a messageDiv para alinear burbujas
-            messageDiv.className = `flex mb-3 ${sender === 'user' ? 'justify-end' : 'justify-start'}`; 
-            
-            const bubbleDiv = document.createElement('div');
-            // max-w-[85%] para responsive y que no ocupe todo el ancho
-            bubbleDiv.className = `p-3 rounded-lg shadow-sm max-w-[85%] ${sender === 'user' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-800'}`; 
-            bubbleDiv.textContent = message;
-            
-            messageDiv.appendChild(bubbleDiv);
-            chatHistory.appendChild(messageDiv);
-            chatHistory.scrollTop = chatHistory.scrollHeight; // Desplazarse al final
+        let chatHistory = [
+            { sender: 'ai', message: 'Hola, soy tu Asistente Médico Virtual. Selecciona un paciente existente o sube un documento para comenzar.' },
+        ];
+        let currentPatientId = null;
+        let currentPatientData = {};
+        let lastAiResponse = "";
+        let availablePatients = [];
+        let filteredPatients = [];
+
+        function showMessageBox(message){
+            messageModalText.textContent = message;
+            messageModal.classList.remove('hidden');
         }
+        messageModalCloseButton.addEventListener('click', ()=>{ messageModal.classList.add('hidden'); });
 
-        // Función para mostrar una burbuja de "escribiendo..."
-        function showLoadingBubble() {
-            const loadingDiv = document.createElement('div');
-            loadingDiv.classList.add('flex', 'justify-start', 'mb-3'); // Flex para alinear y margen
-            loadingDiv.innerHTML = `
-                <div class="loading-bubble">
-                    Escribiendo...
-                </div>
-            `;
-            chatHistory.appendChild(loadingDiv);
-            chatHistory.scrollTop = chatHistory.scrollHeight;
-        }
-
-        // Función para actualizar la lista de documentos indexados (ya no se usa)
-        async function updateIndexedDocumentsList() {
-            console.log("updateIndexedDocumentsList ya no actualiza la UI.");
-        }
-
-        // Llamar a la función al cargar la página (ya no actualiza la UI)
-        updateIndexedDocumentsList();
-
-        // CAMBIO CLAVE AQUÍ: El procesamiento se activa al cambiar el archivo, no por un botón de submit
-        fileInput.addEventListener('change', async () => {
-            if (fileInput.files.length === 0) {
-                statusMessage.textContent = 'Ningún archivo seleccionado.';
-                statusMessage.classList.remove('text-green-600', 'text-red-600');
-                statusMessage.classList.add('text-gray-600');
-                return;
-            }
-
-            statusMessage.textContent = 'Procesando documento... Esto puede tardar unos segundos.';
-            statusMessage.classList.remove('text-red-600', 'text-green-600');
-            statusMessage.classList.add('text-gray-600');
-
-            const formData = new FormData();
-            formData.append('documento', fileInput.files[0]);
-
-            try {
-                const response = await fetch('/procesar', {
-                    method: 'POST',
-                    body: formData
-                });
-
-                if (response.ok) {
-                    const message = await response.text();
-                    statusMessage.textContent = `Documento procesado: ${message}`;
-                    statusMessage.classList.remove('text-gray-600', 'text-red-600');
-                    statusMessage.classList.add('text-green-600');
-                } else {
-                    const errorText = await response.text();
-                    statusMessage.textContent = `Error al procesar: ${errorText}`;
-                    statusMessage.classList.remove('text-gray-600', 'text-green-600');
-                    statusMessage.classList.add('text-red-600');
-                }
-            } catch (error) {
-                statusMessage.textContent = `Error de red: ${error.message}`;
-                statusMessage.classList.remove('text-gray-600', 'text-green-600');
-                statusMessage.classList.add('text-red-600');
-                console.error('Error:', error);
-            }
-        });
-
-
-        sendChatButton.addEventListener('click', async () => {
-            const message = chatInput.value.trim();
-            if (message === '') return;
-
-            addChatMessage(message, 'user');
-            chatInput.value = '';
-            showLoadingBubble(); // Mostrar burbuja de carga
-
-            try {
-                const response = await fetch('/chat', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ message: message })
-                });
-
+        async function loadAvailablePatients(){
+            try{
+                const response = await fetch(`${API_BASE_URL}/patients`);
                 const data = await response.json();
-                // Eliminar la burbuja de carga
-                if (chatHistory.lastChild && chatHistory.lastChild.querySelector('.loading-bubble')) { 
-                    chatHistory.lastChild.remove();
-                }
-                addChatMessage(data.response, 'ai');
-                lastAiResponse = data.response; // Almacenar la última respuesta de la IA
+                availablePatients = data.patients || [];
+                filteredPatients = [...availablePatients];
+                updatePatientsDisplay();
+            }catch(e){
+                console.error('Error al cargar pacientes:', e);
+                patientsList.innerHTML = `<div class="text-red-500 text-sm text-center py-4">Error al cargar pacientes</div>`;
+                patientsCount.textContent = '';
+            }
+        }
 
-            } catch (error) {
-                console.error('Error al enviar mensaje al chatbot:', error);
-                // Eliminar la burbuja de carga incluso en caso de error
-                if (chatHistory.lastChild && chatHistory.lastChild.querySelector('.loading-bubble')) { 
-                    chatHistory.lastChild.remove();
+        function filterPatients(term){
+            if(!term.trim()){ filteredPatients = [...availablePatients]; }
+            else{
+                const t = term.toLowerCase().trim();
+                filteredPatients = availablePatients.filter(p=>{
+                    const byId = p.id.toLowerCase().includes(t);
+                    const byName = p.nombre && p.nombre.toLowerCase().includes(t);
+                    const byDocs = p.documents.some(d=> d.toLowerCase().includes(t));
+                    return byId || byName || byDocs;
+                });
+            }
+            updatePatientsDisplay();
+        }
+
+        function updatePatientsDisplay(){
+            const total = availablePatients.length;
+            const filt = filteredPatients.length;
+            if(total===0) patientsCount.textContent='';
+            else if(filt===total) patientsCount.textContent = `${total} paciente${total!==1?'s':''} disponibles`;
+            else patientsCount.textContent = `${filt} de ${total} pacientes`;
+
+            if(filteredPatients.length===0){
+                patientsList.innerHTML = availablePatients.length===0
+                  ? `<div class="text-gray-500 text-sm text-center py-4">No hay pacientes disponibles.<br>Sube un documento para crear el primero.</div>`
+                  : `<div class="text-gray-500 text-sm text-center py-4"><p class="mb-2">No se encontraron pacientes</p><button onclick="clearSearch()" class="text-gray-900 underline text-xs">Limpiar búsqueda</button></div>`;
+            }else{
+                patientsList.innerHTML = filteredPatients.map(p=>`
+                    <div class=\"p-3 rounded-lg border cursor-pointer hover:bg-[var(--bg)]\" onclick=\"selectPatient('${p.id}')\">
+                        <div class=\"font-semibold text-gray-800\">${highlightSearchTerm(p.id, patientSearch.value)}</div>
+                        ${p.nombre && p.nombre!=='Sin nombre'?`<div class=\"text-sm text-gray-700\">${highlightSearchTerm(p.nombre, patientSearch.value)}</div>`:''}
+                        ${p.edad && p.edad!=='Sin edad'?`<div class=\"text-xs text-gray-600\">${p.edad} años</div>`:''}
+                        <div class=\"text-xs text-gray-600\">${p.document_count} documento(s)</div>
+                    </div>
+                `).join('');
+            }
+        }
+
+        function highlightSearchTerm(text, term){
+            if(!term||!term.trim()) return text;
+            const re = new RegExp(`(${term.trim()})`,'gi');
+            return text.replace(re,'<mark class="bg-yellow-200">$1</mark>');
+        }
+
+        function clearSearch(){ patientSearch.value=''; filteredPatients=[...availablePatients]; updatePatientsDisplay(); }
+
+        async function selectPatient(patientId){
+            if(patientId===currentPatientId) return;
+            setStatusMessage(`Cambiando contexto al paciente: ${patientId}`,'info');
+            try{
+                const r = await fetch(`${API_BASE_URL}/switch_patient`,{
+                    method:'POST',headers:{'Content-Type':'application/json'},
+                    body:JSON.stringify({patient_id:patientId})
+                });
+                const data = await r.json();
+                if(r.ok){
+                    currentPatientId = patientId;
+                    currentPatientData = data.patient_data || {};
+                    updateActivePatientInfo(); updatePatientsDisplay();
+                    addChatMessage(`Contexto cambiado al paciente: ${patientId}`,'ai');
+                    setStatusMessage(`Paciente activo: ${patientId}`,'success');
+                }else{
+                    showMessageBox(`Error al cambiar paciente: ${data.error||'Error desconocido'}`);
+                    setStatusMessage(`Error al cambiar paciente: ${data.error}`,'error');
                 }
-                addChatMessage('Lo siento, no pude conectar con el chatbot.', 'ai');
-                lastAiResponse = ""; // Limpiar en caso de error
+            }catch(e){
+                console.error('Error al cambiar paciente:', e);
+                showMessageBox(`Error de red al cambiar paciente: ${e.message}`);
+                setStatusMessage(`Error de red: ${e.message}`,'error');
+            }
+        }
+
+        function updateActivePatientInfo(){
+            if(currentPatientId){
+                const p = availablePatients.find(x=>x.id===currentPatientId);
+                if(p){
+                    activePatientId.textContent = `ID: ${currentPatientId}`;
+                    activePatientName.textContent = p.nombre && p.nombre!=='Sin nombre'?`Nombre: ${p.nombre}`:'';
+                    activePatientAge.textContent = p.edad && p.edad!=='Sin edad'?`Edad: ${p.edad} años`:'';
+                    activePatientDocs.textContent = `${p.document_count} documento(s) disponible(s)`;
+                    activePatientInfo.classList.remove('hidden');
+                }else activePatientInfo.classList.add('hidden');
+            }else activePatientInfo.classList.add('hidden');
+        }
+
+        if(document.getElementById('refresh-patients-btn'))
+            document.getElementById('refresh-patients-btn').addEventListener('click', loadAvailablePatients);
+        if(patientSearch)
+            patientSearch.addEventListener('input', e=>{ filterPatients(e.target.value); });
+
+        function addChatMessage(message, sender){
+            const row = document.createElement('div');
+            row.className = `flex mb-3 ${sender==='user'?'justify-end':'justify-start'}`;
+            const bubble = document.createElement('div');
+            // Apariencia tipo ChatGPT
+            if(sender==='user'){
+                bubble.className = 'p-3 rounded-2xl shadow-sm max-w-[85%] text-white';
+                bubble.style.background = 'var(--user)';
+            }else{
+                bubble.className = 'p-3 rounded-2xl max-w-[85%] shadow-sm bg-[var(--ai)] text-gray-900 border border-[var(--border)]';
+            }
+            if(sender==='ai' && (message.includes('Subjetivo:')||message.includes('Objetivo:')||message.includes('Evaluación:')||message.includes('Plan:'))){
+                bubble.classList.add('preserved-text'); bubble.innerHTML = message.replace(/\n/g,'<br>');
+            }else bubble.textContent = message;
+            row.appendChild(bubble); chatHistoryContent.appendChild(row);
+            chatHistoryContent.scrollTop = chatHistoryContent.scrollHeight;
+            if(sender==='ai' && message.trim()!=='Pensando...') lastAiResponse = message;
+            chatHistory.push({sender,message});
+        }
+
+        function showLoadingBubble(){
+            const d = document.createElement('div');
+            d.classList.add('flex','justify-start','mb-3'); d.id='loading-bubble-ai';
+            d.innerHTML = `<div class="loading-bubble p-3 rounded-2xl shadow-sm bg-[var(--ai)] text-gray-800 border border-[var(--border)]"><div class="dot-pulse"></div></div>`;
+            chatHistoryContent.appendChild(d); chatHistoryContent.scrollTop = chatHistoryContent.scrollHeight;
+        }
+        function hideLoadingBubble(){ const n=document.getElementById('loading-bubble-ai'); if(n) n.remove(); }
+
+        function setStatusMessage(msg,type='info'){
+            statusMessage.textContent=msg;
+            statusMessage.className='mt-1 text-center text-sm font-medium';
+            statusMessage.classList.add(type==='error'?'text-red-600':type==='success'?'text-green-600':'text-gray-600');
+        }
+
+        fileInput.addEventListener('change', async ()=>{
+            if(fileInput.files.length===0){ setStatusMessage('Ningún archivo seleccionado.','info'); return; }
+            setStatusMessage('Procesando documento...','info');
+            sendChatButton.disabled=true; exportChatPdfButton.disabled=true; fileInput.disabled=true;
+            const formData = new FormData(); formData.append('documento', fileInput.files[0]);
+            try{
+                const r = await fetch(`${API_BASE_URL}/procesar`,{method:'POST',body:formData});
+                const data = await r.json();
+                if(r.ok){
+                    setStatusMessage(data.mensaje,'success');
+                    addChatMessage(`${data.mensaje}`,'ai');
+                    if(data.analisis_nlp) addChatMessage(`Análisis automático del documento:\n\n${data.analisis_nlp}`,'ai');
+                    if(data.patient_id){
+                        currentPatientId=data.patient_id; currentPatientData=data.patient_data||{};
+                        addChatMessage(`Contexto establecido para el Paciente ID: ${currentPatientId}`,'ai');
+                        await loadAvailablePatients(); updateActivePatientInfo();
+                    }else{
+                        currentPatientId=null; currentPatientData={};
+                        addChatMessage(`No se detectó un ID de paciente en el documento.`, 'ai');
+                    }
+                }else{
+                    const err = data.mensaje || 'Error desconocido';
+                    setStatusMessage(`Error al procesar: ${err}`,'error');
+                    addChatMessage(`Error al procesar documento: ${err}`,'ai');
+                    currentPatientId=null; currentPatientData={};
+                }
+            }catch(e){
+                console.error('Error al subir:', e);
+                setStatusMessage(`Error de red o servidor: ${e.message}`,'error');
+                addChatMessage(`Error de red al subir documento: ${e.message}`,'ai');
+                currentPatientId=null; currentPatientData={};
+            }finally{
+                sendChatButton.disabled=false; exportChatPdfButton.disabled=false; fileInput.disabled=false; fileInput.value=null;
             }
         });
 
-        // Manejar la exportación a PDF
-        exportChatPdfButton.addEventListener('click', async () => {
-            if (lastAiResponse === "") {
-                alert("No hay una respuesta de la IA para exportar a PDF. Chatea primero.");
+        sendChatButton.addEventListener('click', async ()=>{
+            const message = chatInput.value.trim(); if(message==='') return;
+            addChatMessage(message,'user'); chatInput.value=''; showLoadingBubble();
+            sendChatButton.disabled=true; fileInput.disabled=true; exportChatPdfButton.disabled=true;
+            try{
+                const historyToSend = chatHistory.filter(m=>m.message.trim()!=='Pensando...');
+                const r = await fetch(`${API_BASE_URL}/chat`,{
+                    method:'POST',headers:{'Content-Type':'application/json'},
+                    body:JSON.stringify({message,chat_history:historyToSend,current_patient_id:currentPatientId})
+                });
+                const data = await r.json(); hideLoadingBubble();
+                if(r.ok){
+                    addChatMessage(data.response,'ai'); lastAiResponse=data.response;
+                }else{
+                    const err = data.response || 'Error desconocido';
+                    addChatMessage(`Error del chatbot: ${err}`,'ai'); lastAiResponse="";
+                }
+            }catch(e){
+                hideLoadingBubble(); addChatMessage(`Error de red al chatear: ${e.message}`,'ai'); lastAiResponse="";
+            }finally{
+                sendChatButton.disabled=false; fileInput.disabled=false; exportChatPdfButton.disabled=false;
+            }
+        });
+
+        // CORRECCIÓN: Función exportChatPdfButton con manejo correcto de streams
+        exportChatPdfButton.addEventListener('click', async ()=>{
+            if(lastAiResponse===""){
+                showMessageBox("No hay una respuesta de la IA para exportar a PDF.");
                 return;
             }
 
-            try {
-                const response = await fetch('/export_chat_response_pdf', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ text_content: lastAiResponse }) // Enviar la última respuesta de la IA
+            setStatusMessage('Generando PDF...','info');
+            sendChatButton.disabled=true;
+            fileInput.disabled=true;
+            exportChatPdfButton.disabled=true;
+
+            try{
+                const response = await fetch(`${API_BASE_URL}/export_chat_response_pdf`,{
+                    method:'POST',
+                    headers:{'Content-Type':'application/json'},
+                    body:JSON.stringify({text_content:lastAiResponse})
                 });
 
-                if (response.ok) {
+                if(response.ok){
+                    // La respuesta es exitosa, procesar como PDF
                     const blob = await response.blob();
-                    const url = window.URL.createObjectURL(blob);
+                    const url = URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.href = url;
-                    a.download = 'respuesta_chatbot.pdf'; // Nombre de archivo por defecto
+                    a.download = 'informe_medico_ia.pdf';
                     document.body.appendChild(a);
                     a.click();
                     a.remove();
-                    window.URL.revokeObjectURL(url);
-                    alert("PDF de la respuesta del chatbot generado y descargado.");
+                    URL.revokeObjectURL(url);
+                    setStatusMessage("PDF generado y descargado.",'success');
                 } else {
-                    const errorText = await response.text();
-                    alert(`Error al generar el PDF de la respuesta del chatbot: ${errorText}`);
+                    // La respuesta tiene un error - usar clone() para evitar el error de stream
+                    let errorMessage = `Error HTTP ${response.status}: ${response.statusText}`;
+
+                    try {
+                        // Clonar la respuesta para poder leerla sin consumir el stream original
+                        const responseClone = response.clone();
+                        const contentType = response.headers.get("content-type");
+
+                        if (contentType && contentType.includes("application/json")) {
+                            const errorData = await response.json();
+                            errorMessage = errorData.mensaje || errorData.error || errorMessage;
+                        } else {
+                            errorMessage = await responseClone.text() || errorMessage;
+                        }
+                    } catch(parseError) {
+                        console.warn("No se pudo parsear el mensaje de error:", parseError);
+                        // Usar el mensaje de error por defecto
+                    }
+
+                    setStatusMessage(`Error al generar el PDF: ${errorMessage}`,'error');
                 }
-            } catch (error) {
-                alert(`Error de red al generar el PDF: ${error.message}`);
-                console.error('Error al exportar chat a PDF:', error);
+
+            } catch(networkError) {
+                console.error("Error de red al exportar PDF:", networkError);
+                setStatusMessage(`Error de red al generar el PDF: ${networkError.message}`,'error');
+            } finally {
+                sendChatButton.disabled = false;
+                fileInput.disabled = false;
+                exportChatPdfButton.disabled = false;
             }
         });
 
+        function setInitialMessage(){
+            chatHistory = [{ sender:'ai', message:'Hola, soy tu Asistente Médico Virtual. Selecciona un paciente existente o sube un documento para comenzar.' }];
+        }
 
-        // Permitir enviar mensaje con la tecla Enter
-        chatInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                sendChatButton.click();
-            }
-        });
+        document.addEventListener('DOMContentLoaded', ()=>{ loadAvailablePatients(); setInitialMessage(); });
+        loadAvailablePatients();
     </script>
 </body>
 </html>

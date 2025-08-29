@@ -11,7 +11,6 @@
     <style>
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #f0f4f8; /* Un color de fondo suave */
         }
         /* Custom scrollbar for chat history */
         .chat-history::-webkit-scrollbar {
@@ -35,7 +34,7 @@
             padding: 0.75rem 1.25rem;
             border-radius: 1.5rem; /* Más redondeado */
             display: inline-block;
-            max-width: 70%; /* Para que no ocupe todo el ancho */
+            max-w-[85%]; /* Para que no ocupe todo el ancho */
             animation: pulse 1.5s infinite ease-in-out; /* Animación de pulsación */
         }
 
@@ -85,7 +84,7 @@
                 </svg>
                 <span>Asistente Médico Virtual</span>
                 <!-- Información del Dr. Rodolfo Gutiérrez Caro -->
-                <span class="text-sm font-normal text-gray-600 mt-1">Dr. Rodolfo Gutiérrez Caro</span>
+                <span class="text-sm font-normal text-gray-600">Dr. Rodolfo Gutiérrez Caro</span>
                 <span class="text-xs font-normal text-gray-500">Especialista en Cardiología</span>
                 <span class="text-xs font-normal text-gray-500">Colegiado 332405519</span>
             </h2>
@@ -200,10 +199,12 @@
                 });
 
                 if (response.ok) {
-                    const message = await response.text();
-                    statusMessage.textContent = `Documento procesado: ${message}`;
+                    // Solo obtener el mensaje de éxito, no el análisis completo
+                    const data = await response.json(); // Ahora esperamos JSON
+                    statusMessage.textContent = `${data.mensaje}`; // Usamos data.mensaje
                     statusMessage.classList.remove('text-gray-600', 'text-red-600');
                     statusMessage.classList.add('text-green-600');
+                    // NO AÑADIR EL ANÁLISIS AL CHAT AQUÍ
                 } else {
                     const errorText = await response.text();
                     statusMessage.textContent = `Error al procesar: ${errorText}`;
@@ -212,7 +213,7 @@
                 }
             } catch (error) {
                 statusMessage.textContent = `Error de red: ${error.message}`;
-                statusMessage.classList.remove('text-gray-600', 'text-red-600');
+                statusMessage.classList.remove('text-gray-600', 'text-green-600');
                 statusMessage.classList.add('text-red-600');
                 console.error('Error:', error);
             }

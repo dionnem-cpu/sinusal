@@ -1,265 +1,266 @@
-import React, { useState, useRef } from 'react';
-// import './index.css'; // Removed this line as it causes compilation error in this environment
+import React, { useState, useRef, useEffect } from 'react';
 
 // Define la URL base de tu servidor Flask, que será la URL de LocalTunnel.
 // ¡IMPORTANTE!: Reemplaza 'https://your-localtunnel-url.loca.lt' con la URL real
 // que LocalTunnel te proporcione en la terminal cuando lo inicies (ej. https://small-toys-brake.loca.lt).
-const API_BASE_URL = 'https://brown-roses-flash.loca.lt'; // **MODIFICA ESTA LÍNEA CON TU URL ACTUAL DE LOCAL TUNNEL**
+const API_BASE_URL = 'https://dionnem.pythonanywhere.com'; // **MODIFICA ESTA LÍNEA CON TU URL ACTUAL DE LOCAL TUNNEL**
 
 // Main App component
 const App = () => {
-    // State to manage chat messages
+    // Estado para gestionar los mensajes del chat
     const [chatHistory, setChatHistory] = useState([
         { sender: 'ai', message: 'Hola, soy tu Asistente Médico Virtual. ¿En qué puedo ayudarte hoy?' },
     ]);
-    // State for the current message being typed by the user
+    // Estado para el mensaje actual que el usuario está escribiendo
     const [currentMessage, setCurrentMessage] = useState('');
-    // State for displaying status messages (e.g., file upload status)
+    // Estado para mostrar mensajes de estado (ej. estado de carga de archivos)
     const [statusMessage, setStatusMessage] = useState('');
-    // Ref for the hidden file input element
+    // Referencia para el elemento de entrada de archivo oculto
     const fileInputRef = useRef(null);
-    // Ref for the chat history div to enable scrolling
+    // Referencia para el div del historial del chat para permitir el desplazamiento
     const chatHistoryRef = useRef(null);
-    // State for loading indicator in chat
+    // Estado para el indicador de carga en el chat
     const [isLoading, setIsLoading] = useState(false);
+    // NUEVO: Estado para almacenar el ID del paciente actual en discusión
+    const [currentPatientId, setCurrentPatientId] = useState(null);
+    // Estado para la última respuesta de la IA (para exportar a PDF)
+    const [lastAiResponse, setLastAiResponse] = useState('');
 
-    // Function to add a message to the chat history and scroll to the bottom
+    // Efecto para desplazarse automáticamente al final del historial del chat
+    useEffect(() => {
+        if (chatHistoryRef.current) {
+            chatHistoryRef.current.scrollTop = chatHistoryRef.current.scrollHeight;
+        }
+    }, [chatHistory]);
+
+    // Función para añadir un mensaje al historial del chat
     const addChatMessage = (message, sender) => {
         setChatHistory((prevHistory) => {
-            // Remove loading bubble if it exists before adding new message
-            if (prevHistory.length > 0 && prevHistory[prevHistory.length - 1].sender === 'loading') {
-                // Si el mensaje actual es de la IA, lo reemplazamos por el mensaje final de la IA.
-                // Si el mensaje actual es de error, lo dejamos como un mensaje normal.
-                const updatedHistory = prevHistory.slice(0, prevHistory.length - 1);
-                return [...updatedHistory, { sender, message }];
+            const newHistory = [...prevHistory, { sender, message }];
+            // Actualizar la última respuesta de la IA si el remitente es la IA
+            if (sender === 'ai') {
+                setLastAiResponse(message);
             }
-            return [...prevHistory, { sender, message }];
+            return newHistory;
         });
-        // Scroll to the bottom of the chat history
-        setTimeout(() => {
-            if (chatHistoryRef.current) {
-                chatHistoryRef.current.scrollTop = chatHistoryRef.current.scrollHeight;
-            }
-        }, 100); // Small delay to allow DOM to update
     };
 
-    // Function to show the "Escribiendo..." loading bubble
-    const showLoadingBubble = () => {
-        setChatHistory((prevHistory) => [...prevHistory, { sender: 'loading', message: 'Escribiendo...' }]);
-        setTimeout(() => {
-            if (chatHistoryRef.current) {
-                chatHistoryRef.current.scrollTop = chatHistoryRef.current.scrollHeight;
-            }
-        }, 100);
-    };
-
-    // Handler for sending a chat message
-    const handleSendMessage = async () => {
-        const message = currentMessage.trim();
-        if (!message) return;
-
-        addChatMessage(message, 'user'); // Add user's message to chat history
-        setCurrentMessage(''); // Clear the input field
-        showLoadingBubble(); // Show "Escribiendo..." bubble
-        setIsLoading(true); // Set loading state
-
-        try {
-            const response = await fetch(`${API_BASE_URL}/chat`, { // Usa API_BASE_URL
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ message: message }),
-            });
-
-            const data = await response.json();
-            if (response.ok) {
-                addChatMessage(data.response, 'ai'); // Add AI's response to chat history
-            } else {
-                addChatMessage(`Error al obtener respuesta: ${data.response || 'Error desconocido'}`, 'ai');
-            }
-        } catch (error) {
-            console.error('Error al enviar mensaje al chatbot:', error);
-            addChatMessage('Lo siento, no pude conectar con el chatbot.', 'ai');
-        } finally {
-            setIsLoading(false); // Clear loading state
-            // Ensure loading bubble is removed even if there was an error
-            setChatHistory((prevHistory) => {
-                if (prevHistory.length > 0 && prevHistory[prevHistory.length - 1].sender === 'loading') {
-                    return prevHistory.slice(0, prevHistory.length - 1);
-                }
-                return prevHistory;
-            });
-        }
-    };
-
-    // Handler for file input change (when a file is selected)
-    const handleFileChange = async (event) => {
-        const file = event.target.files[0];
-        if (!file) {
-            setStatusMessage('Ningún archivo seleccionado.');
-            return;
-        }
-
-        setStatusMessage('Procesando documento... Esto puede tardar unos segundos.');
-        setIsLoading(true); // Set loading state for file upload
-
-        const formData = new FormData();
-        formData.append('documento', file);
-
-        try {
-            const response = await fetch(`${API_BASE_URL}/procesar`, { // Usa API_BASE_URL
-                method: 'POST',
-                body: formData,
-            });
-
-            if (response.ok) {
-                const message = await response.text();
-                setStatusMessage(`Documento procesado: ${message}`);
-                addChatMessage(`Documento "${file.name}" procesado exitosamente. Ahora puedes preguntar sobre él.`, 'ai');
-            } else {
-                const errorText = await response.text();
-                setStatusMessage(`Error al procesar: ${errorText}`);
-                addChatMessage(`Error al procesar documento "${file.name}": ${errorText}`, 'ai');
-            }
-        } catch (error) {
-            setStatusMessage(`Error de red: ${error.message}`);
-            addChatMessage(`Error de red al procesar documento: ${error.message}`, 'ai');
-            console.error('Error:', error);
-        } finally {
-            setIsLoading(false); // Clear loading state
-        }
-    };
-
-    // Trigger the hidden file input click
+    // Manejador para el clic en el botón de documento
     const handleDocumentClick = () => {
         fileInputRef.current.click();
     };
 
-    // Suggested actions (chips) click handler
-    const handleChipClick = (action) => {
-        setCurrentMessage(action); // Pre-fill the input with the action
-        // Optionally, send message automatically: handleSendMessage();
+    // Manejador para el cambio de archivo (cuando se selecciona un archivo)
+    const handleFileChange = async (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        setIsLoading(true);
+        setStatusMessage('Cargando documento...');
+        addChatMessage(`Cargando documento: ${file.name}...`, 'user');
+
+        const formData = new FormData();
+        formData.append('document', file);
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/procesar`, {
+                method: 'POST',
+                body: formData,
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                setStatusMessage(data.mensaje);
+                addChatMessage(`📄 ${data.mensaje}`, 'ai');
+                addChatMessage(`📊 Análisis automático del documento:\n\n${data.analisis_nlp}`, 'ai');
+                // NUEVO: Establecer el ID del paciente actual desde la respuesta del backend
+                if (data.patient_id) {
+                    setCurrentPatientId(data.patient_id);
+                    addChatMessage(`Contexto establecido para el Paciente ID: ${data.patient_id}`, 'ai');
+                } else {
+                    setCurrentPatientId(null); // Limpiar si no se devuelve ID
+                }
+            } else {
+                const errorText = data.mensaje || 'Error desconocido';
+                setStatusMessage(`Error al procesar: ${errorText}`);
+                addChatMessage(`Error al procesar documento "${file.name}": ${errorText}`, 'ai');
+                setCurrentPatientId(null); // Limpiar contexto en caso de error
+            }
+        } catch (error) {
+            console.error('Error al subir el documento:', error);
+            setStatusMessage(`Error de red al subir el documento: ${error.message}`);
+            addChatMessage(`Error de red al subir el documento: ${error.message}`, 'ai');
+            setCurrentPatientId(null); // Limpiar contexto en caso de error
+        } finally {
+            setIsLoading(false);
+        }
     };
 
-    // Define the chips based on your PDF document
-    const mainChips = [
-        'Informes completo',
-        'Resumen',
-        'Alergias e intolerancias',
-        'Medicación',
-        'Curvas evolutivas',
-        'Pruebas',
-        'Analíticas',
-        'Diagnósticos',
-        'Electros',
-        'Especialidades',
-        'Imágenes',
-        'Archivos adj.'
-    ];
+    // Manejador para enviar un mensaje de chat
+    const handleSendMessage = async () => {
+        const messageToSend = currentMessage.trim();
+        if (!messageToSend) return;
+
+        addChatMessage(messageToSend, 'user');
+        setCurrentMessage('');
+        setIsLoading(true);
+        setStatusMessage('Generando respuesta...');
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/chat`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    message: messageToSend,
+                    // Enviar el historial completo del chat para el contexto
+                    chat_history: chatHistory.map(msg => ({
+                        sender: msg.sender, // 'user' o 'ai'
+                        message: msg.message
+                    })),
+                    // NUEVO: Enviar el ID del paciente activo
+                    current_patient_id: currentPatientId,
+                }),
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                addChatMessage(data.response, 'ai');
+                setStatusMessage('Respuesta generada.');
+            } else {
+                const errorText = data.error || 'Error desconocido';
+                setStatusMessage(`Error al generar respuesta: ${errorText}`);
+                addChatMessage(`Error: ${errorText}`, 'ai');
+            }
+        } catch (error) {
+            console.error('Error al enviar mensaje:', error);
+            setStatusMessage(`Error de red: ${error.message}`);
+            addChatMessage(`Error de red: ${error.message}`, 'ai');
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     return (
-        <div className="flex flex-col h-screen bg-gray-900 text-white font-inter">
-            {/* Top Bar - Mimicking the Meta AI UI */}
-            <header className="flex items-center justify-between p-4 bg-gray-800 shadow-md">
-                <button className="text-gray-400 hover:text-white transition-colors duration-200">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-                    </svg>
-                </button>
-                <div className="flex-1 mx-3 flex items-center bg-gray-700 rounded-full px-4 py-2 text-gray-300 text-sm">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
-                    Preguntar a CliniKa AI o buscar
+        <div className="flex flex-col h-screen bg-gray-900 text-gray-100 font-inter">
+            {/* Header */}
+            <header className="p-4 bg-gray-800 border-b border-gray-700 flex items-center justify-between">
+                <h1 className="text-2xl font-bold text-blue-400">Asistente Médico Virtual</h1>
+                <div className="flex items-center space-x-2">
+                    {currentPatientId && ( // Mostrar el ID del paciente si está activo
+                        <span className="text-sm text-gray-400 px-3 py-1 bg-gray-700 rounded-full">
+                            Paciente: {currentPatientId}
+                        </span>
+                    )}
+                    <button className="p-2 rounded-full bg-gray-700 hover:bg-gray-600 transition-colors duration-200">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-6 h-6 text-gray-300">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 12.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 18.75a.75.75 0 110-1.5.75.75 0 010 1.5z" />
+                        </svg>
+                    </button>
                 </div>
-                <button className="text-green-500 hover:text-green-400 transition-colors duration-200">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/>
-                    </svg>
-                </button>
             </header>
 
-            {/* Doctor Info Section */}
-            <div className="bg-gray-800 p-3 text-center text-gray-400 text-sm border-b border-gray-700">
-                <p className="font-semibold text-lg">Dr. Rodolfo Gutiérrez Caro</p>
-                <p className="text-sm">Especialista en Cardiología</p>
-                <p className="text-xs">Colegiado 332405519</p>
-            </div>
-
-            {/* Suggested Actions / Chips (dynamically rendered from mainChips array) */}
-            <div className="flex overflow-x-auto p-3 bg-gray-800 border-b border-gray-700 scrollbar-hide">
-                <div className="flex space-x-2 whitespace-nowrap">
-                    {mainChips.map((action, index) => (
-                        <button
-                            key={index}
-                            onClick={() => handleChipClick(action)}
-                            className="bg-gray-700 text-gray-300 px-4 py-2 rounded-full text-sm hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200"
-                        >
-                            {action}
-                        </button>
-                    ))}
-                </div>
-            </div>
-
-            {/* Chat History Area */}
-            <main ref={chatHistoryRef} className="flex-1 overflow-y-auto p-4 bg-gray-900 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-800">
-                <div className="flex flex-col space-y-3">
-                    {chatHistory.map((msg, index) => (
+            {/* Main Chat Area */}
+            <main className="flex-1 overflow-hidden p-4 flex flex-col">
+                <div ref={chatHistoryRef} className="flex-1 overflow-y-auto pr-4 mb-4 custom-scrollbar">
+                    {chatHistory.map((chat, index) => (
                         <div
                             key={index}
-                            className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+                            className={`flex mb-3 ${chat.sender === 'user' ? 'justify-end' : 'justify-start'}`}
                         >
-                            {msg.sender === 'loading' ? (
-                                <div className="bg-gray-700 text-gray-300 px-4 py-2 rounded-xl animate-pulse">
-                                    {msg.message}
-                                </div>
-                            ) : (
-                                <div
-                                    className={`px-4 py-2 rounded-xl max-w-[80%] ${
-                                        msg.sender === 'user'
-                                            ? 'bg-blue-600 text-white'
-                                            : 'bg-gray-700 text-gray-200'
-                                    }`}
-                                >
-                                    {msg.message}
-                                </div>
-                            )}
+                            <div
+                                className={`max-w-[70%] p-3 rounded-lg shadow-md ${
+                                    chat.sender === 'user'
+                                        ? 'bg-blue-600 text-white rounded-br-none'
+                                        : 'bg-gray-700 text-gray-100 rounded-bl-none'
+                                }`}
+                            >
+                                {chat.message}
+                            </div>
                         </div>
                     ))}
+                    {isLoading && (
+                        <div className="flex justify-start mb-3">
+                            <div className="max-w-[70%] p-3 rounded-lg shadow-md bg-gray-700 text-gray-100 rounded-bl-none loading-bubble">
+                                <span>•</span><span>•</span><span>•</span>
+                            </div>
+                        </div>
+                    )}
                 </div>
+
+                {statusMessage && (
+                    <div className="text-center text-sm text-gray-400 mb-2">
+                        {statusMessage}
+                    </div>
+                )}
             </main>
 
-            {/* Status Message */}
-            {statusMessage && (
-                <div className="p-2 text-center text-sm bg-gray-800 text-gray-400">
-                    {statusMessage}
-                </div>
-            )}
-
-            {/* Bottom Input and Action Buttons */}
+            {/* Footer - Input and Buttons */}
             <footer className="p-4 bg-gray-800 border-t border-gray-700">
-                <div className="flex items-center space-x-2 mb-3">
+                <div className="flex items-center space-x-3 mb-4">
                     <input
                         type="text"
                         value={currentMessage}
                         onChange={(e) => setCurrentMessage(e.target.value)}
                         onKeyPress={(e) => {
-                            if (e.key === 'Enter' && !isLoading) {
+                            if (e.key === 'Enter') {
                                 handleSendMessage();
                             }
                         }}
-                        placeholder="Escribe tu mensaje..."
-                        className="flex-1 bg-gray-700 text-white rounded-full px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-400"
+                        placeholder={isLoading ? "Espera un momento..." : "Escribe tu mensaje..."}
+                        className="flex-1 p-3 rounded-full bg-gray-700 text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 border border-gray-600"
                         disabled={isLoading}
                     />
                     <button
                         onClick={handleSendMessage}
-                        className={`p-3 rounded-full ${isLoading ? 'bg-green-700 opacity-50 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'} text-white focus:outline-none focus:ring-2 focus:ring-green-500 transition-colors duration-200`}
+                        className="p-3 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
                         disabled={isLoading}
                     >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-6 h-6">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+                        </svg>
+                    </button>
+                    {/* Botón de exportar a PDF */}
+                    <button
+                        onClick={async () => {
+                            addChatMessage("Generando PDF de la última respuesta de la IA...", "ai");
+                            try {
+                                const response = await fetch(`${API_BASE_URL}/export_chat_response_pdf`, {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json'
+                                    },
+                                    body: JSON.stringify({ text_content: lastAiResponse })
+                                });
+
+                                if (response.ok) {
+                                    const blob = await response.blob();
+                                    const url = window.URL.createObjectURL(blob);
+                                    const a = document.createElement('a');
+                                    a.href = url;
+                                    a.download = 'respuesta_chatbot.pdf';
+                                    document.body.appendChild(a);
+                                    a.click();
+                                    a.remove();
+                                    window.URL.revokeObjectURL(url);
+                                    addChatMessage("PDF de la respuesta del chatbot generado y descargado.", "ai");
+                                } else {
+                                    const errorText = await response.text();
+                                    addChatMessage(`Error al generar el PDF de la respuesta del chatbot: ${errorText}`, "ai");
+                                }
+                            } catch (error) {
+                                addChatMessage(`Error de red al generar el PDF: ${error.message}`, "ai");
+                                console.error('Error al exportar chat a PDF:', error);
+                            }
+                        }}
+                        className="p-3 bg-green-600 text-white rounded-full shadow-lg hover:bg-green-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-green-500"
+                        title="Exportar última respuesta a PDF"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-6 h-6">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m.75 12l3 3m0 0l3-3m-3 3V2.25" />
                         </svg>
                     </button>
                 </div>

@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Formulario SOAP - Asistente Médico</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --bg:#f7f7f8;         /* fondo tipo ChatGPT */
+      --panel:#ffffff;      /* paneles */
+      --text:#0c0c0d;       /* texto */
+      --muted:#6b7280;      /* secundario */
+      --border:#e5e7eb;     /* bordes */
+      --primary:#111827;    /* botón principal oscuro */
+      --accent:#10a37f;     /* acento opcional */
+    }
+    body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text)}
+    .custom-scrollbar::-webkit-scrollbar{width:8px}
+    .custom-scrollbar::-webkit-scrollbar-track{background:#f1f1f1;border-radius:10px}
+    .custom-scrollbar::-webkit-scrollbar-thumb{background:#c7c9cc;border-radius:10px}
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover{background:#a8aaad}
+    .loading-spinner{border:4px solid #f3f3f3;border-top:4px solid #111;border-radius:50%;width:20px;height:20px;animation:spin 1s linear infinite}
+    @keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
+    textarea:disabled{background-color:#f9fafb;cursor:not-allowed}
+    .ai-generated{background-color:#f7f7f8;border-left:4px solid #d1d5db}
+    .saving-animation{animation:pulse 2s ease-in-out infinite}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
+    .card{background:var(--panel);border:1px solid var(--border);border-radius:14px}
+    .btn{background:var(--primary);color:#fff;border:none;border-radius:10px;padding:10px 16px;font-weight:700}
+    .btn:hover{opacity:.9}
+    .btn-outline{background:#fff;color:#111;border:1px solid var(--border);border-radius:10px;padding:10px 16px;font-weight:700}
+    .btn-outline:hover{background:#f3f4f6}
+    header{background:var(--panel)!important;border-bottom:1px solid var(--border)}
+  </style>
+</head>
+<body class="min-h-screen">
+  <!-- Header -->
+  <header class="shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex justify-between items-center py-4">
+        <div class="flex items-center space-x-3">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-gray-900" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/></svg>
+          <div>
+            <h1 class="text-xl font-bold text-gray-900">Formulario SOAP</h1>
+            <p class="text-sm text-gray-600">Dr. Rodolfo Gutiérrez Caro · Cardiología</p>
+          </div>
+        </div>
+        <div class="flex space-x-2">
+          <button onclick="goToMainApp()" class="btn">← Volver al chat</button>
+          <button id="new-soap-btn" onclick="resetForm()" class="btn" style="background:#10a37f">Nuevo SOAP</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Status Messages -->
+    <div id="status-message" class="hidden mb-6 p-4 rounded-lg"></div>
+
+    <!-- Patient Selection -->
+    <section class="card p-6 mb-6">
+      <h2 class="text-lg font-semibold text-gray-900 mb-4">Selección de paciente</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Buscar</label>
+          <input type="text" id="patient-search" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-0 focus:border-gray-400" placeholder="ID o nombre...">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Pacientes</label>
+          <select id="patient-select" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-0 focus:border-gray-400"><option value="">Seleccionar paciente...</option></select>
+        </div>
+      </div>
+      <button id="load-patient-btn" class="btn mt-4">Cargar datos del paciente</button>
+    </section>
+
+    <!-- Patient Information -->
+    <section id="patient-info-section" class="card p-6 mb-6 hidden">
+      <h2 class="text-lg font-semibold text-gray-900 mb-4">Información del paciente</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Nombres y apellidos</label>
+          <input type="text" id="patient-name" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-0 focus:border-gray-400" readonly>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">ID Paciente</label>
+          <input type="text" id="patient-id" class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50" readonly>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Edad</label>
+          <input type="text" id="patient-age" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-0 focus:border-gray-400">
+        </div>
+        <div class="md:col-span-2 lg:col-span-3">
+          <label class="block text-sm font-medium text-gray-700 mb-1">Fecha de consulta</label>
+          <input type="date" id="consultation-date" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-0 focus:border-gray-400">
+        </div>
+        <div class="md:col-span-2 lg:col-span-3">
+          <label class="block text-sm font-medium text-gray-700 mb-1">Antecedentes clínicos</label>
+          <textarea id="patient-history" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-0 focus:border-gray-400" placeholder="Antecedentes médicos relevantes..."></textarea>
+        </div>
+      </div>
+    </section>
+
+    <!-- SOAP Form -->
+    <section id="soap-form-section" class="card p-6 mb-6 hidden">
+      <h2 class="text-lg font-semibold text-gray-900 mb-6">Formulario SOAP</h2>
+
+      <div class="mb-6">
+        <label class="block text-sm font-medium text-gray-700 mb-2"><span class="inline-flex items-center"><span class="px-2 py-1 rounded text-xs font-semibold mr-2 border border-gray-300">S</span>SUBJETIVO</span></label>
+        <textarea id="subjective" rows="4" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-0 focus:border-gray-400" placeholder="Síntomas e historia clínica según el paciente..."></textarea>
+      </div>
+
+      <div class="mb-6">
+        <label class="block text-sm font-medium text-gray-700 mb-2"><span class="inline-flex items-center"><span class="px-2 py-1 rounded text-xs font-semibold mr-2 border border-gray-300">O</span>OBJETIVO</span></label>
+        <textarea id="objective" rows="4" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-0 focus:border-gray-400" placeholder="Hallazgos clínicos y complementarios..."></textarea>
+      </div>
+
+      <div class="text-center mb-6">
+        <button id="generate-ai-btn" class="btn"><span id="generate-btn-text">Generar Assessment y Plan con IA</span><div id="generate-btn-spinner" class="loading-spinner ml-2 hidden" style="display:inline-block;vertical-align:middle;margin-left:8px"></div></button>
+        <p class="text-xs text-gray-500 mt-2">Se basa en la información de S y O</p>
+      </div>
+
+      <div class="mb-6">
+        <label class="block text-sm font-medium text-gray-700 mb-2"><span class="inline-flex items-center"><span class="px-2 py-1 rounded text-xs font-semibold mr-2 border border-gray-300">A</span>ASSESSMENT / Evaluación (IA)</span></label>
+        <textarea id="assessment" rows="4" class="w-full px-3 py-2 border border-gray-300 rounded-lg ai-generated custom-scrollbar" placeholder="Se generará a partir de S y O" readonly></textarea>
+      </div>
+
+      <div class="mb-6">
+        <label class="block text-sm font-medium text-gray-700 mb-2"><span class="inline-flex items-center"><span class="px-2 py-1 rounded text-xs font-semibold mr-2 border border-gray-300">P</span>PLAN (IA)</span></label>
+        <textarea id="plan" rows="4" class="w-full px-3 py-2 border border-gray-300 rounded-lg ai-generated custom-scrollbar" placeholder="Se generará a partir de S y O" readonly></textarea>
+      </div>
+    </section>
+
+    <!-- Action Buttons -->
+    <section id="action-buttons" class="card p-6 hidden">
+      <h2 class="text-lg font-semibold text-gray-900 mb-4">Acciones</h2>
+      <div class="flex flex-wrap gap-3 justify-center">
+        <button id="save-soap-btn" class="btn"><span id="save-btn-text">Guardar SOAP y Descargar PDF</span><div id="save-btn-spinner" class="loading-spinner ml-2 hidden" style="display:inline-block;vertical-align:middle;margin-left:8px"></div></button>
+        <button id="preview-btn" class="btn-outline">Vista previa</button>
+      </div>
+      <p class="text-xs text-gray-500 text-center mt-3">Se guardará, indexará y descargará el PDF automáticamente</p>
+    </section>
+
+    <!-- Preview Modal -->
+    <div id="preview-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+      <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+          <div class="flex justify-between items-center p-6 border-b">
+            <h3 class="text-lg font-semibold text-gray-900">Vista previa · Reporte SOAP</h3>
+            <button id="close-preview" class="text-gray-400 hover:text-gray-600">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+          </div>
+          <div id="preview-content" class="p-6 overflow-y-auto max-h-[70vh] custom-scrollbar"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // Configuration
+    const API_BASE_URL = 'https://dionnem.pythonanywhere.com';
+
+    // DOM Elements
+    const patientSearch = document.getElementById('patient-search');
+    const patientSelect = document.getElementById('patient-select');
+    const loadPatientBtn = document.getElementById('load-patient-btn');
+    const patientInfoSection = document.getElementById('patient-info-section');
+    const soapFormSection = document.getElementById('soap-form-section');
+    const actionButtons = document.getElementById('action-buttons');
+    const statusMessage = document.getElementById('status-message');
+
+    // Patient Info Fields
+    const patientName = document.getElementById('patient-name');
+    const patientId = document.getElementById('patient-id');
+    const patientAge = document.getElementById('patient-age');
+    const consultationDate = document.getElementById('consultation-date');
+    const patientHistory = document.getElementById('patient-history');
+
+    // SOAP Fields
+    const subjective = document.getElementById('subjective');
+    const objective = document.getElementById('objective');
+    const assessment = document.getElementById('assessment');
+    const plan = document.getElementById('plan');
+
+    // Buttons
+    const generateAiBtn = document.getElementById('generate-ai-btn');
+    const saveSoapBtn = document.getElementById('save-soap-btn');
+    const previewBtn = document.getElementById('preview-btn');
+
+    // Modal
+    const previewModal = document.getElementById('preview-modal');
+    const closePreview = document.getElementById('close-preview');
+    const previewContent = document.getElementById('preview-content');
+
+    // State
+    let availablePatients = [];
+    let currentPatientData = {};
+    let isGenerating = false;
+    let isSaving = false;
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+      loadAvailablePatients();
+      setTodayDate();
+    });
+
+    function goToMainApp(){ window.location.href = '/'; }
+
+    function showStatus(message, type = 'info') {
+      statusMessage.textContent = message;
+      statusMessage.className = `mb-6 p-4 rounded-lg ${type === 'error' ? 'bg-red-100 text-red-800' : type === 'success' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`;
+      statusMessage.classList.remove('hidden');
+      setTimeout(() => statusMessage.classList.add('hidden'), 5000);
+    }
+
+    function setTodayDate() {
+      const today = new Date().toISOString().split('T')[0];
+      consultationDate.value = today;
+    }
+
+    function resetForm() {
+      patientSelect.value = '';
+      patientName.value = '';
+      patientId.value = '';
+      patientAge.value = '';
+      patientHistory.value = '';
+      subjective.value = '';
+      objective.value = '';
+      assessment.value = '';
+      plan.value = '';
+      setTodayDate();
+
+      patientInfoSection.classList.add('hidden');
+      soapFormSection.classList.add('hidden');
+      actionButtons.classList.add('hidden');
+
+      isSaving = false; isGenerating = false;
+      saveSoapBtn.disabled = false; generateAiBtn.disabled = false;
+      document.getElementById('save-btn-text').textContent = 'Guardar SOAP y Descargar PDF';
+      document.getElementById('save-btn-spinner').classList.add('hidden');
+      document.getElementById('generate-btn-text').textContent = 'Generar Assessment y Plan con IA';
+      document.getElementById('generate-btn-spinner').classList.add('hidden');
+
+      currentPatientData = {};
+      showStatus('Formulario reiniciado. Selecciona un paciente para comenzar', 'info');
+    }
+
+    // Load Available Patients
+    async function loadAvailablePatients() {
+      try {
+        const response = await fetch(`${API_BASE_URL}/patients`);
+        const data = await response.json();
+        availablePatients = data.patients || [];
+        updatePatientSelect();
+      } catch (error) {
+        console.error('Error loading patients:', error);
+        showStatus('Error al cargar pacientes', 'error');
+      }
+    }
+
+    function updatePatientSelect() {
+      patientSelect.innerHTML = '<option value="">Seleccionar paciente...</option>';
+      const searchTerm = (patientSearch.value || '').toLowerCase();
+      const filtered = availablePatients.filter(patient => patient.id.toLowerCase().includes(searchTerm) || (patient.nombre && patient.nombre.toLowerCase().includes(searchTerm)));
+      filtered.forEach(patient => {
+        const option = document.createElement('option');
+        option.value = patient.id;
+        option.textContent = `${patient.id} - ${patient.nombre || 'Sin nombre'} (${patient.document_count} docs)`;
+        patientSelect.appendChild(option);
+      });
+    }
+
+    patientSearch.addEventListener('input', updatePatientSelect);
+
+    loadPatientBtn.addEventListener('click', async () => {
+      const selectedPatientId = patientSelect.value;
+      if (!selectedPatientId) { showStatus('Selecciona un paciente', 'error'); return; }
+      try {
+        showStatus('Cargando datos del paciente...', 'info');
+        const response = await fetch(`${API_BASE_URL}/get_patient_for_soap/${selectedPatientId}`);
+        const data = await response.json();
+        if (response.ok) {
+          currentPatientData = data.patient_data;
+          patientId.value = selectedPatientId;
+          patientName.value = currentPatientData.nombre || '';
+          patientAge.value = currentPatientData.edad || '';
+          patientHistory.value = currentPatientData.antecedentes || '';
+          patientInfoSection.classList.remove('hidden');
+          soapFormSection.classList.remove('hidden');
+          actionButtons.classList.remove('hidden');
+          showStatus(`Paciente ${selectedPatientId} cargado`, 'success');
+        } else {
+          showStatus(data.error || 'Error al cargar paciente', 'error');
+        }
+      } catch (error) {
+        console.error('Error loading patient:', error);
+        showStatus('Error de red al cargar paciente', 'error');
+      }
+    });
+
+    generateAiBtn.addEventListener('click', async () => {
+      if (isGenerating) return;
+      const subjectiveText = subjective.value.trim();
+      const objectiveText = objective.value.trim();
+      if (!subjectiveText && !objectiveText) { showStatus('Introduce S u O para generar', 'error'); return; }
+      isGenerating = true; generateAiBtn.disabled = true;
+      document.getElementById('generate-btn-text').textContent = 'Generando...';
+      document.getElementById('generate-btn-spinner').classList.remove('hidden');
+      try {
+        const response = await fetch(`${API_BASE_URL}/generate_soap_assessment`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ patient_id: patientId.value, subjective: subjectiveText, objective: objectiveText, patient_data: { nombre: patientName.value, edad: patientAge.value, antecedentes: patientHistory.value } })
+        });
+        const data = await response.json();
+        if (response.ok) {
+          assessment.value = data.assessment || '';
+          plan.value = data.plan || '';
+          showStatus('Assessment y Plan generados', 'success');
+        } else {
+          showStatus(data.error || 'Error al generar assessment', 'error');
+        }
+      } catch (error) {
+        console.error('Error generating assessment:', error);
+        showStatus('Error de red al generar assessment', 'error');
+      } finally {
+        isGenerating = false; generateAiBtn.disabled = false;
+        document.getElementById('generate-btn-text').textContent = 'Generar Assessment y Plan con IA';
+        document.getElementById('generate-btn-spinner').classList.add('hidden');
+      }
+    });
+
+    saveSoapBtn.addEventListener('click', async () => {
+      if (isSaving) return;
+      if (!patientId.value) { showStatus('Selecciona un paciente', 'error'); return; }
+      if (!subjective.value.trim() && !objective.value.trim()) { showStatus('Introduce S u O', 'error'); return; }
+      isSaving = true; saveSoapBtn.disabled = true;
+      document.getElementById('save-btn-text').textContent = 'Guardando e indexando...';
+      document.getElementById('save-btn-spinner').classList.remove('hidden');
+      try {
+        const soapData = collectFormData();
+        const response = await fetch(`${API_BASE_URL}/save_soap_report`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ patient_id: patientId.value, soap_data: soapData }) });
+        const data = await response.json();
+        if (response.ok) {
+          if (data.duplicate) { showStatus(`DUPLICADO: ${data.message}`, 'error'); return; }
+          document.getElementById('save-btn-text').textContent = 'Descargando PDF...';
+          if (data.pdf_data && data.pdf_filename) {
+            const ok = downloadPdfFromBase64(data.pdf_data, data.pdf_filename);
+            showStatus(ok ? 'Guardado e PDF descargado' : 'Guardado. Error al descargar PDF', ok ? 'success' : 'error');
+          } else { showStatus('SOAP guardado', 'success'); }
+          if (data.reset_form) {
+            setTimeout(() => { resetForm(); showStatus('Formulario listo para nuevo SOAP', 'info'); }, 1200);
+          }
+        } else {
+          if (response.status === 409 && data.error === 'DUPLICADO_DETECTADO') showStatus(`DUPLICADO: ${data.message}`, 'error');
+          else showStatus(data.error || 'Error al guardar reporte', 'error');
+        }
+      } catch (error) {
+        console.error('Error saving SOAP:', error);
+        showStatus('Error de red al guardar reporte', 'error');
+      } finally {
+        if (!window.__skipResetButtons) {
+          isSaving = false; saveSoapBtn.disabled = false;
+          document.getElementById('save-btn-text').textContent = 'Guardar SOAP y Descargar PDF';
+          document.getElementById('save-btn-spinner').classList.add('hidden');
+        }
+      }
+    });
+
+    function collectFormData() {
+      return { patient_id: patientId.value, nombre: patientName.value, edad: patientAge.value, fecha_consulta: consultationDate.value, antecedentes: patientHistory.value, subjective: subjective.value, objective: objective.value, assessment: assessment.value, plan: plan.value };
+    }
+
+    function downloadPdfFromBase64(base64Data, filename) {
+      try { const byteCharacters = atob(base64Data); const byteNumbers = new Array(byteCharacters.length); for (let i=0;i<byteCharacters.length;i++){ byteNumbers[i]=byteCharacters.charCodeAt(i);} const byteArray = new Uint8Array(byteNumbers); const blob = new Blob([byteArray], { type: 'application/pdf' }); const url = window.URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=filename; document.body.appendChild(a); a.click(); a.remove(); window.URL.revokeObjectURL(url); return true; } catch(e){ console.error('Error downloading PDF:', e); return false; }
+    }
+
+    function showPreview() {
+      const soapData = collectFormData();
+      previewContent.innerHTML = `
+        <div class="space-y-6">
+          <div class="text-center border-b pb-4">
+            <h2 class="text-2xl font-bold text-gray-900">REPORTE SOAP</h2>
+            <p class="text-gray-600">Dr. Rodolfo Gutiérrez Caro · Cardiología</p>
+          </div>
+          <div class="grid grid-cols-2 gap-4 text-sm">
+            <div><strong>Paciente:</strong> ${soapData.nombre || 'Sin nombre'}</div>
+            <div><strong>ID:</strong> ${soapData.patient_id}</div>
+            <div><strong>Edad:</strong> ${soapData.edad || 'Sin edad'} años</div>
+            <div><strong>Fecha:</strong> ${soapData.fecha_consulta}</div>
+          </div>
+          ${soapData.antecedentes ? `<div><h3 class="text-lg font-semibold text-gray-800 mb-2">ANTECEDENTES CLÍNICOS</h3><p class="text-gray-700 whitespace-pre-wrap">${soapData.antecedentes}</p></div>` : ''}
+          <div class="space-y-4">
+            <div><h3 class="text-lg font-semibold text-gray-900 mb-2">SUBJETIVO</h3><p class="text-gray-700 whitespace-pre-wrap">${soapData.subjective || 'Sin información'}</p></div>
+            <div><h3 class="text-lg font-semibold text-gray-900 mb-2">OBJETIVO</h3><p class="text-gray-700 whitespace-pre-wrap">${soapData.objective || 'Sin información'}</p></div>
+            <div><h3 class="text-lg font-semibold text-gray-900 mb-2">ASSESSMENT</h3><p class="text-gray-700 whitespace-pre-wrap">${soapData.assessment || 'Sin información'}</p></div>
+            <div><h3 class="text-lg font-semibold text-gray-900 mb-2">PLAN</h3><p class="text-gray-700 whitespace-pre-wrap">${soapData.plan || 'Sin información'}</p></div>
+          </div>
+          <div class="text-center pt-4 border-t"><p class="text-sm text-gray-500">Al guardar se indexará y descargará el PDF</p></div>
+        </div>`;
+      previewModal.classList.remove('hidden');
+    }
+
+    previewBtn.addEventListener('click', () => { if (!patientId.value) { showStatus('Selecciona un paciente', 'error'); return; } if (!subjective.value.trim() && !objective.value.trim()) { showStatus('Introduce S u O', 'error'); return; } showPreview(); });
+    document.getElementById('close-preview').addEventListener('click', () => { previewModal.classList.add('hidden'); });
+    previewModal.addEventListener('click', (e) => { if (e.target === previewModal) { previewModal.classList.add('hidden'); } });
+  </script>
+</body>
+</html>
